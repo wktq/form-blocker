@@ -46,62 +46,34 @@ export default function DashboardPage() {
 
       {/* 統計カード */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">総送信数</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.total}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">📊</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="stats shadow">
+          <div className="stat">
+            <div className="stat-title">総送信数</div>
+            <div className="stat-value text-primary">{stats.total}</div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">ブロック数</p>
-                <p className="text-3xl font-bold text-red-600 mt-2">{stats.blocked}</p>
-                <p className="text-xs text-gray-500 mt-1">ブロック率: {blockRate}%</p>
-              </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">🚫</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="stats shadow">
+          <div className="stat">
+            <div className="stat-title">ブロック数</div>
+            <div className="stat-value text-error">{stats.blocked}</div>
+            <div className="stat-desc">ブロック率: {blockRate}%</div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">許可数</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{stats.allowed}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">✅</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="stats shadow">
+          <div className="stat">
+            <div className="stat-title">許可数</div>
+            <div className="stat-value text-success">{stats.allowed}</div>
+          </div>
+        </div>
 
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">チャレンジ</p>
-                <p className="text-3xl font-bold text-yellow-600 mt-2">{stats.challenged}</p>
-              </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                <span className="text-2xl">⚠️</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="stats shadow">
+          <div className="stat">
+            <div className="stat-title">チャレンジ</div>
+            <div className="stat-value text-warning">{stats.challenged}</div>
+          </div>
+        </div>
       </div>
 
       {/* 最近のブロック */}
@@ -109,7 +81,7 @@ export default function DashboardPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>最近ブロックされた送信</CardTitle>
-            <Link href="/submissions?status=blocked" className="text-sm text-primary-600 hover:text-primary-700">
+            <Link href="/submissions?status=blocked" className="link link-primary">
               すべて表示 →
             </Link>
           </div>
@@ -120,35 +92,33 @@ export default function DashboardPage() {
               <Link
                 key={submission.id}
                 href={`/submissions/${submission.id}`}
-                className="block border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                className="card bg-base-100 border border-base-300 hover:shadow-md transition-shadow"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Badge variant="danger">{getStatusLabel(submission.status)}</Badge>
-                      <span className="text-sm text-gray-600">{formatDate(submission.created_at)}</span>
-                    </div>
-                    <p className="font-medium text-gray-900 mb-1">
-                      {submission.content.name} ({submission.content.email})
-                    </p>
-                    <p className="text-sm text-gray-600 line-clamp-2">
-                      {submission.content.message}
-                    </p>
-                    <div className="flex items-center space-x-4 mt-2">
-                      <span className="text-xs text-gray-500">
-                        営業スコア: <span className="font-medium text-red-600">{formatScore(submission.score_sales)}</span>
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        スパムスコア: <span className="font-medium text-red-600">{formatScore(submission.score_spam)}</span>
-                      </span>
-                    </div>
+                <div className="card-body">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="danger">{getStatusLabel(submission.status)}</Badge>
+                    <span className="text-sm opacity-60">{formatDate(submission.created_at)}</span>
+                  </div>
+                  <p className="font-medium mb-1">
+                    {submission.content.name} ({submission.content.email})
+                  </p>
+                  <p className="text-sm opacity-70 line-clamp-2">
+                    {submission.content.message}
+                  </p>
+                  <div className="flex items-center gap-4 mt-2">
+                    <span className="text-xs">
+                      営業スコア: <span className="font-medium text-error">{formatScore(submission.score_sales)}</span>
+                    </span>
+                    <span className="text-xs">
+                      スパムスコア: <span className="font-medium text-error">{formatScore(submission.score_spam)}</span>
+                    </span>
                   </div>
                 </div>
               </Link>
             ))}
 
             {recentBlocked.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 opacity-60">
                 <p>ブロックされた送信はありません</p>
               </div>
             )}

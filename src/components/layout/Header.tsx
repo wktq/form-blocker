@@ -1,18 +1,28 @@
 'use client';
 
 import { useFormStore } from '@/lib/store';
+import { useAuth } from '@/lib/auth/context';
 import { copyToClipboard } from '@/lib/utils';
 import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { useRouter } from 'next/navigation';
 
 export function Header() {
   const [copied, setCopied] = useState(false);
   const { currentForm } = useFormStore();
+  const { user, signOut } = useAuth();
+  const router = useRouter();
 
   const handleCopy = async () => {
     if (!currentForm) return;
     await copyToClipboard(currentForm.api_key);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
   };
 
   if (!currentForm) {
@@ -23,6 +33,14 @@ export function Header() {
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Form Blocker</h2>
             </div>
+            {user && (
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">{user.email}</span>
+                <Button variant="secondary" onClick={handleSignOut} size="sm">
+                  ログアウト
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -51,6 +69,14 @@ export function Header() {
               </button>
             </div>
           </div>
+          {user && (
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">{user.email}</span>
+              <Button variant="secondary" onClick={handleSignOut} size="sm">
+                ログアウト
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </header>

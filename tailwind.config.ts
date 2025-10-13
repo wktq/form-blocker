@@ -24,7 +24,10 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require('daisyui')],
+  daisyui: {
+    themes: ["light", "dark", "cupcake"], // 使用可能なテーマ
+  },
 };
 
 export default config;

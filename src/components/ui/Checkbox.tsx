@@ -8,22 +8,16 @@ interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'typ
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   ({ label, className, ...props }, ref) => {
     return (
-      <div className="flex items-center">
-        <input
-          ref={ref}
-          type="checkbox"
-          className={cn(
-            'h-4 w-4 text-primary-600 border-gray-300 rounded',
-            'focus:ring-2 focus:ring-primary-500 focus:ring-offset-0',
-            className
-          )}
-          {...props}
-        />
-        {label && (
-          <label className="ml-2 block text-sm text-gray-700">
-            {label}
-          </label>
-        )}
+      <div className="form-control">
+        <label className="label cursor-pointer justify-start gap-2">
+          <input
+            ref={ref}
+            type="checkbox"
+            className={cn('checkbox checkbox-primary', className)}
+            {...props}
+          />
+          {label && <span className="label-text">{label}</span>}
+        </label>
       </div>
     );
   }
