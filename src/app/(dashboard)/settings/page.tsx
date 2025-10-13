@@ -1,23 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Slider } from '@/components/ui/Slider';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { useFormConfigStore } from '@/lib/store';
+import { useFormStore } from '@/lib/store';
 
 export default function SettingsPage() {
-  const { formConfig, updateFormConfig } = useFormConfigStore();
-  const [bannedKeywords, setBannedKeywords] = useState(formConfig.banned_keywords.join(', '));
+  const { currentForm, getCurrentFormConfig, updateFormConfig } = useFormStore();
+  const formConfig = getCurrentFormConfig();
+  const [bannedKeywords, setBannedKeywords] = useState(formConfig?.banned_keywords?.join(', ') || '');
 
   const handleSave = () => {
-    updateFormConfig({
+    if (!currentForm) return;
+    updateFormConfig(currentForm.id, {
       banned_keywords: bannedKeywords.split(',').map(k => k.trim()).filter(k => k),
     });
     alert('設定を保存しました（モックアップ）');
   };
+
+  if (!formConfig || !currentForm) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">フォームが選択されていません</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -34,13 +44,13 @@ export default function SettingsPage() {
           <Checkbox
             label="URL検出を有効にする"
             checked={formConfig.enable_url_detection}
-            onChange={(e) => updateFormConfig({ enable_url_detection: e.target.checked })}
+            onChange={(e) => currentForm && updateFormConfig(currentForm.id, { enable_url_detection: e.target.checked })}
           />
 
           <Checkbox
             label="ペースト検出を有効にする"
             checked={formConfig.enable_paste_detection}
-            onChange={(e) => updateFormConfig({ enable_paste_detection: e.target.checked })}
+            onChange={(e) => currentForm && updateFormConfig(currentForm.id, { enable_paste_detection: e.target.checked })}
           />
         </CardContent>
       </Card>
@@ -54,7 +64,7 @@ export default function SettingsPage() {
             <Slider
               label="営業スコア閾値"
               value={formConfig.threshold_sales * 100}
-              onChange={(e) => updateFormConfig({ threshold_sales: Number(e.target.value) / 100 })}
+              onChange={(e) => currentForm && updateFormConfig(currentForm.id, { threshold_sales: Number(e.target.value) / 100 })}
               min={0}
               max={100}
             />
@@ -67,7 +77,7 @@ export default function SettingsPage() {
             <Slider
               label="スパムスコア閾値"
               value={formConfig.threshold_spam * 100}
-              onChange={(e) => updateFormConfig({ threshold_spam: Number(e.target.value) / 100 })}
+              onChange={(e) => currentForm && updateFormConfig(currentForm.id, { threshold_spam: Number(e.target.value) / 100 })}
               min={0}
               max={100}
             />
