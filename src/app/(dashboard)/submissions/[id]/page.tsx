@@ -1,52 +1,147 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { mockSubmissions } from '@/lib/mock-data';
 import { formatDate, getStatusLabel, formatScore } from '@/lib/utils';
-import Link from 'next/link';
+import type { Submission, SubmissionStatus } from '@/types';
 
-export default function SubmissionDetailPage({ params }: { params: { id: string } }) {
-  const submission = mockSubmissions.find(s => s.id === params.id);
+interface SubmissionDetail extends Submission {
+  forms?: {
+    id: string;
+    name: string;
+    site_url: string;
+  };
+}
 
-  if (!submission) {
+export default function SubmissionDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const [submission, setSubmission] = useState<SubmissionDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/submissions/${params.id}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('送信履歴が見つかりませんでした');
+          }
+          throw new Error('送信履歴の取得に失敗しました');
+        }
+
+        const body = await response.json();
+        if (!cancelled) {
+          setSubmission(body.submission ?? null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '送信履歴の取得に失敗しました');
+          setSubmission(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [params.id]);
+
+  const statusVariant = useMemo(() => {
+    if (!submission) return 'default';
+    switch (submission.status as SubmissionStatus) {
+      case 'allowed':
+        return 'success';
+      case 'challenged':
+        return 'warning';
+      case 'blocked':
+        return 'danger';
+      case 'held':
+        return 'info';
+      default:
+        return 'default';
+    }
+  }, [submission]);
+
+  if (loading) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">送信履歴が見つかりません</p>
-        <Link href="/submissions" className="text-primary-600 hover:text-primary-700 mt-4 inline-block">
+      <div className="text-center py-12 text-sm text-gray-500">
+        読み込み中です...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4 text-center py-12">
+        <p className="text-red-500">{error}</p>
+        <Link
+          href="/submissions"
+          className="text-primary-600 hover:text-primary-700 inline-block"
+        >
           ← 送信履歴一覧に戻る
         </Link>
       </div>
     );
   }
 
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'allowed': return 'success';
-      case 'challenged': return 'warning';
-      case 'blocked': return 'danger';
-      case 'held': return 'info';
-      default: return 'default';
-    }
-  };
+  if (!submission) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">送信履歴が見つかりません</p>
+        <Link
+          href="/submissions"
+          className="text-primary-600 hover:text-primary-700 mt-4 inline-block"
+        >
+          ← 送信履歴一覧に戻る
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <Link href="/submissions" className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block">
+          <Link
+            href="/submissions"
+            className="text-sm text-primary-600 hover:text-primary-700 mb-2 inline-block"
+          >
             ← 送信履歴一覧に戻る
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">送信詳細</h1>
           <p className="text-gray-500 mt-1">{formatDate(submission.created_at)}</p>
+          {submission.forms && (
+            <p className="text-xs text-gray-500 mt-1">
+              フォーム: {submission.forms.name} ({submission.forms.site_url})
+            </p>
+          )}
         </div>
-        <Badge variant={getStatusVariant(submission.status)} className="text-lg px-4 py-2">
+        <Badge variant={statusVariant} className="text-lg px-4 py-2">
           {getStatusLabel(submission.status)}
         </Badge>
       </div>
 
-      {/* 基本情報 */}
       <Card>
         <CardHeader>
           <CardTitle>基本情報</CardTitle>
@@ -60,28 +155,31 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
             <div>
               <dt className="text-sm font-medium text-gray-600">ステータス</dt>
               <dd className="mt-1">
-                <Badge variant={getStatusVariant(submission.status)}>
-                  {getStatusLabel(submission.status)}
-                </Badge>
+                <Badge variant={statusVariant}>{getStatusLabel(submission.status)}</Badge>
               </dd>
             </div>
             <div>
               <dt className="text-sm font-medium text-gray-600">日時</dt>
-              <dd className="mt-1 text-sm text-gray-900">{formatDate(submission.created_at)}</dd>
+              <dd className="mt-1 text-sm text-gray-900">
+                {formatDate(submission.created_at)}
+              </dd>
             </div>
             <div>
               <dt className="text-sm font-medium text-gray-600">IPアドレス</dt>
-              <dd className="mt-1 text-sm text-gray-900">{submission.ip_address || 'N/A'}</dd>
+              <dd className="mt-1 text-sm text-gray-900">
+                {submission.ip_address || '記録なし'}
+              </dd>
             </div>
             <div className="col-span-2">
               <dt className="text-sm font-medium text-gray-600">User-Agent</dt>
-              <dd className="mt-1 text-sm text-gray-900 break-all">{submission.user_agent || 'N/A'}</dd>
+              <dd className="mt-1 text-sm text-gray-900 break-all">
+                {submission.user_agent || '記録なし'}
+              </dd>
             </div>
           </dl>
         </CardContent>
       </Card>
 
-      {/* スコア */}
       <Card>
         <CardHeader>
           <CardTitle>判定スコア</CardTitle>
@@ -90,20 +188,26 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">営業スコア</span>
-              <span className={`text-lg font-bold ${
-                submission.score_sales >= 0.85 ? 'text-red-600' :
-                submission.score_sales >= 0.7 ? 'text-yellow-600' :
-                'text-green-600'
-              }`}>
+              <span
+                className={`text-lg font-bold ${
+                  submission.score_sales >= 0.85
+                    ? 'text-red-600'
+                    : submission.score_sales >= 0.7
+                    ? 'text-yellow-600'
+                    : 'text-green-600'
+                }`}
+              >
                 {formatScore(submission.score_sales)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className={`h-3 rounded-full ${
-                  submission.score_sales >= 0.85 ? 'bg-red-600' :
-                  submission.score_sales >= 0.7 ? 'bg-yellow-500' :
-                  'bg-green-500'
+                  submission.score_sales >= 0.85
+                    ? 'bg-red-600'
+                    : submission.score_sales >= 0.7
+                    ? 'bg-yellow-500'
+                    : 'bg-green-500'
                 }`}
                 style={{ width: `${submission.score_sales * 100}%` }}
               />
@@ -113,20 +217,26 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">スパムスコア</span>
-              <span className={`text-lg font-bold ${
-                submission.score_spam >= 0.85 ? 'text-red-600' :
-                submission.score_spam >= 0.7 ? 'text-yellow-600' :
-                'text-green-600'
-              }`}>
+              <span
+                className={`text-lg font-bold ${
+                  submission.score_spam >= 0.85
+                    ? 'text-red-600'
+                    : submission.score_spam >= 0.7
+                    ? 'text-yellow-600'
+                    : 'text-green-600'
+                }`}
+              >
                 {formatScore(submission.score_spam)}
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className={`h-3 rounded-full ${
-                  submission.score_spam >= 0.85 ? 'bg-red-600' :
-                  submission.score_spam >= 0.7 ? 'bg-yellow-500' :
-                  'bg-green-500'
+                  submission.score_spam >= 0.85
+                    ? 'bg-red-600'
+                    : submission.score_spam >= 0.7
+                    ? 'bg-yellow-500'
+                    : 'bg-green-500'
                 }`}
                 style={{ width: `${submission.score_spam * 100}%` }}
               />
@@ -135,7 +245,6 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
         </CardContent>
       </Card>
 
-      {/* 検出理由 */}
       {submission.detection_reasons.length > 0 && (
         <Card>
           <CardHeader>
@@ -143,8 +252,8 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {submission.detection_reasons.map((reason, idx) => (
-                <Badge key={idx} variant="default">
+              {submission.detection_reasons.map((reason) => (
+                <Badge key={reason} variant="default">
                   {reason}
                 </Badge>
               ))}
@@ -153,7 +262,6 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
         </Card>
       )}
 
-      {/* AI判定理由 */}
       {submission.llm_reasoning && (
         <Card>
           <CardHeader>
@@ -167,7 +275,6 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
         </Card>
       )}
 
-      {/* フォーム内容 */}
       <Card>
         <CardHeader>
           <CardTitle>フォーム送信内容</CardTitle>
@@ -186,33 +293,14 @@ export default function SubmissionDetailPage({ params }: { params: { id: string 
         </CardContent>
       </Card>
 
-      {/* アクション */}
       <Card>
         <CardHeader>
-          <CardTitle>アクション</CardTitle>
+          <CardTitle>対応メモ</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-3">
-            {submission.status === 'blocked' && (
-              <>
-                <Button variant="primary">誤検知として承認</Button>
-                <Button variant="danger">IPを完全ブロック</Button>
-              </>
-            )}
-            {submission.status === 'challenged' && (
-              <>
-                <Button variant="primary">手動で承認</Button>
-                <Button variant="danger">ブロックに変更</Button>
-              </>
-            )}
-            {submission.status === 'held' && (
-              <>
-                <Button variant="primary">許可</Button>
-                <Button variant="danger">ブロック</Button>
-              </>
-            )}
-            <Button variant="secondary">エクスポート</Button>
-          </div>
+          <p className="text-sm text-gray-600">
+            自動判定の結果は上記の通りです。今後、誤検知の承認や通知連携などを追加予定です。
+          </p>
         </CardContent>
       </Card>
     </div>

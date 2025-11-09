@@ -65,6 +65,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure user profile exists (RLS requires matching users row)
+    const { error: profileError } = await supabase
+      .from('users')
+      .upsert(
+        {
+          id: user.id,
+          email: user.email ?? '',
+          name: (user.user_metadata as Record<string, unknown>)?.name as string | null,
+        },
+        { onConflict: 'id' }
+      );
+
+    if (profileError) {
+      console.error('Error ensuring user profile:', profileError);
+      return NextResponse.json(
+        { error: 'Failed to ensure user profile' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
     const { name, site_url } = body;
 

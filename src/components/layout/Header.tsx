@@ -1,15 +1,15 @@
 'use client';
 
-import { useFormStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth/context';
 import { copyToClipboard } from '@/lib/utils';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
+import { useFormContext } from '@/lib/forms/context';
 
 export function Header() {
   const [copied, setCopied] = useState(false);
-  const { currentForm } = useFormStore();
+  const { currentForm } = useFormContext();
   const { user, signOut } = useAuth();
   const router = useRouter();
 

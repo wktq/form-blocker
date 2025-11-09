@@ -16,6 +16,7 @@ export interface Form {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  form_configs?: FormConfig[];
 }
 
 // フォーム設定
@@ -28,6 +29,8 @@ export interface FormConfig {
   threshold_spam: number; // 0.0-1.0
   banned_keywords: string[];
   allowed_domains: string[];
+  blocked_domains: string[];
+  form_selector: string;
   created_at: string;
   updated_at: string;
 }
@@ -129,7 +132,7 @@ export interface EvaluateRequest {
 export interface EvaluateResponse {
   success: boolean;
   submission_id: string;
-  decision: 'allow' | 'challenge' | 'hold' | 'block';
+  decision: 'allowed' | 'challenged' | 'held' | 'blocked';
   scores: {
     sales: number;
     spam: number;

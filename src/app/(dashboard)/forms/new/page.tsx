@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Slider } from '@/components/ui/Slider';
+import { useFormContext } from '@/lib/forms/context';
 
 export default function NewFormPage() {
   const router = useRouter();
+  const { refreshForms, selectForm } = useFormContext();
   const [formData, setFormData] = useState({
     name: '',
     site_url: '',
@@ -18,13 +20,67 @@ export default function NewFormPage() {
     threshold_sales: 70,
     threshold_spam: 85,
     banned_keywords: '営業, セールス, 販売促進, 広告代理店',
+    blocked_domains: '',
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: 実際のAPI呼び出しをここに実装
-    alert('フォームを作成しました（モックアップ）');
-    router.push('/forms');
+    if (submitting) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const createResponse = await fetch('/api/forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          site_url: formData.site_url,
+        }),
+      });
+
+      if (!createResponse.ok) {
+        const body = await createResponse.json().catch(() => ({}));
+        const message =
+          typeof body?.error === 'string'
+            ? body.error
+            : body?.error?.message || 'フォームの作成に失敗しました';
+        throw new Error(message);
+      }
+
+      const { form } = await createResponse.json();
+
+      const configPayload = {
+        enable_url_detection: formData.enable_url_detection,
+        enable_paste_detection: formData.enable_paste_detection,
+        threshold_sales: formData.threshold_sales / 100,
+        threshold_spam: formData.threshold_spam / 100,
+        banned_keywords: formData.banned_keywords
+          .split(',')
+          .map((keyword) => keyword.trim())
+          .filter(Boolean),
+        blocked_domains: formData.blocked_domains
+          .split(',')
+          .map((domain) => domain.trim())
+          .filter(Boolean),
+      };
+
+      await fetch(`/api/forms/${form.id}/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configPayload),
+      });
+
+      await refreshForms();
+      selectForm(form.id);
+      router.push(`/forms/${form.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'フォームの作成に失敗しました');
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -35,6 +91,11 @@ export default function NewFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="alert alert-error">
+            <span>{error}</span>
+          </div>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>基本情報</CardTitle>
@@ -126,12 +187,28 @@ export default function NewFormPage() {
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="営業, セールス, 販売促進, 広告"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                基本的な禁止キーワードは閾値に応じてバックエンド側で自動設定されます。ここでは追加で禁止したいキーワードをカンマ区切りで入力してください。
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-gray-500 mt-1">
+              基本的な禁止キーワードは閾値に応じてバックエンド側で自動設定されます。ここでは追加で禁止したいキーワードをカンマ区切りで入力してください。
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ブロック対象ドメイン
+            </label>
+            <textarea
+              value={formData.blocked_domains}
+              onChange={(e) => setFormData({ ...formData, blocked_domains: e.target.value })}
+              rows={3}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="example.com, calendly.com"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              営業やスパム送信でよく使われるドメインがあればカンマ区切りで入力してください。
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
         <div className="flex items-center justify-between">
           <Button
@@ -141,8 +218,8 @@ export default function NewFormPage() {
           >
             キャンセル
           </Button>
-          <Button type="submit">
-            フォームを作成
+          <Button type="submit" disabled={submitting}>
+            {submitting ? '作成中...' : 'フォームを作成'}
           </Button>
         </div>
       </form>

@@ -3,21 +3,23 @@
 import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { API_KEY } from '@/lib/mock-data';
 import { copyToClipboard } from '@/lib/utils';
+import { useFormContext } from '@/lib/forms/context';
 
 export default function EmbedCodePage() {
   const [copied, setCopied] = useState(false);
+  const { currentForm, loading, error } = useFormContext();
 
   const embedCode = `<!-- Form Blocker -->
 <script src="${process.env.NEXT_PUBLIC_CDN_URL || 'http://localhost:3000'}/embed/form-blocker.min.js"></script>
 <script>
   FormBlocker.init({
-    apiKey: '${API_KEY}'
+    apiKey: '${currentForm?.api_key || 'your_api_key_here'}'
   });
 </script>`;
 
   const handleCopy = async () => {
+    if (!currentForm) return;
     await copyToClipboard(embedCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -30,6 +32,12 @@ export default function EmbedCodePage() {
         <p className="text-gray-500 mt-1">Webサイトに以下のコードを追加してください</p>
       </div>
 
+      {error && (
+        <div className="alert alert-error">
+          <span>{error}</span>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>スニペットコード</CardTitle>
@@ -39,18 +47,28 @@ export default function EmbedCodePage() {
             以下のコードをWebサイトの<code className="bg-gray-100 px-1 rounded">&lt;head&gt;</code>タグ内または<code className="bg-gray-100 px-1 rounded">&lt;/body&gt;</code>タグの直前に貼り付けてください。
           </p>
 
-          <div className="relative">
-            <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm">
-              <code>{embedCode}</code>
-            </pre>
-            <Button
-              size="sm"
-              className="absolute top-2 right-2"
-              onClick={handleCopy}
-            >
-              {copied ? '✓ コピーしました' : '📋 コピー'}
-            </Button>
-          </div>
+          {loading ? (
+            <div className="bg-gray-900 text-gray-100 rounded-lg p-4 text-sm text-center">
+              読み込み中...
+            </div>
+          ) : currentForm ? (
+            <div className="relative">
+              <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 overflow-x-auto text-sm">
+                <code>{embedCode}</code>
+              </pre>
+              <Button
+                size="sm"
+                className="absolute top-2 right-2"
+                onClick={handleCopy}
+              >
+                {copied ? '✓ コピーしました' : '📋 コピー'}
+              </Button>
+            </div>
+          ) : (
+            <div className="bg-gray-900 text-gray-100 rounded-lg p-4 text-sm text-center">
+              フォームが選択されていません
+            </div>
+          )}
         </CardContent>
       </Card>
 

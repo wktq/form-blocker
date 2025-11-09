@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FormBlocker Test Playground</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="panel">
+        <h1>FormBlocker Test Playground</h1>
+        <p class="description">
+          埋め込みスクリプト <code>public/embed/form-blocker.min.js</code> の動作をローカルで検証するためのデモフォームです。下のプリセットボタンを押してから送信すると
+          Allow / Challenge / Block の挙動を簡単に再現できます。
+        </p>
+
+        <div class="config-panel">
+          <h2>接続設定</h2>
+          <div class="config-grid">
+            <label>
+              判定モード
+              <select id="api-mode">
+                <option value="mock">モック（ローカル判定）</option>
+                <option value="live">実API / Supabase</option>
+              </select>
+            </label>
+            <label>
+              API Base URL
+              <input id="api-base-url" placeholder="http://localhost:3000" />
+            </label>
+            <label>
+              API Key
+              <input id="api-key" placeholder="fb_live_xxxxxxxxxxxx" />
+            </label>
+          </div>
+          <label class="config-checkbox">
+            <input type="checkbox" id="preview-mode" />
+            Preview Mode（ネイティブ送信をブロック）
+          </label>
+          <button type="button" id="apply-config" class="apply-btn">設定を適用</button>
+          <p class="config-hint" id="config-hint">
+            モックモードでは supabase には送信されません。実 API を使う場合は Next.js を起動し、forms テーブルに登録済みの API Key を指定してください。
+          </p>
+        </div>
+
+        <div class="presets">
+          <button type="button" data-template="clean">通常お問い合わせ</button>
+          <button type="button" data-template="challenge">チャレンジ判定</button>
+          <button type="button" data-template="sales">営業・ブロック</button>
+        </div>
+
+        <form id="demo-form" class="demo-form">
+          <label>
+            お名前
+            <input name="name" placeholder="山田 太郎" />
+          </label>
+          <label>
+            会社名
+            <input name="company" placeholder="株式会社フォームブロッカー" />
+          </label>
+          <label>
+            メールアドレス
+            <input name="email" type="email" placeholder="demo@example.com" />
+          </label>
+          <label>
+            お問い合わせ内容
+            <textarea name="message" rows="6" placeholder="ご用件を入力してください"></textarea>
+          </label>
+          <button type="submit" class="submit-btn">送信する</button>
+        </form>
+      </section>
+
+      <section class="panel status-panel">
+        <div class="status-header">
+          <span class="status-label">Last decision</span>
+          <span id="status-badge" class="status-badge" data-state="idle">IDLE</span>
+        </div>
+        <pre id="status-detail" class="status-detail">送信結果がここに表示されます。</pre>
+      </section>
+    </main>
+
+    <script src="./mock-api.js"></script>
+    <script src="../public/embed/form-blocker.min.js"></script>
+    <script>
+      (function () {
+        const form = document.getElementById('demo-form');
+        const badge = document.getElementById('status-badge');
+        const detail = document.getElementById('status-detail');
+        const modeSelect = document.getElementById('api-mode');
+        const baseInput = document.getElementById('api-base-url');
+        const keyInput = document.getElementById('api-key');
+        const previewCheckbox = document.getElementById('preview-mode');
+        const applyButton = document.getElementById('apply-config');
+        const configHint = document.getElementById('config-hint');
+
+        const STORAGE_KEY = 'fb-test-site-config';
+        const defaultConfig = {
+          mode: 'mock',
+          apiBaseUrl: 'http://localhost:3000',
+          apiKey: 'fb_test_site',
+          previewMode: true,
+        };
+
+        let currentConfig = loadConfig();
+
+        function loadConfig() {
+          try {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+              return { ...defaultConfig, ...JSON.parse(stored) };
+            }
+          } catch {
+            // noop
+          }
+          return { ...defaultConfig };
+        }
+
+        function saveConfig() {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(currentConfig));
+        }
+
+        function syncUi() {
+          modeSelect.value = currentConfig.mode;
+          baseInput.value = currentConfig.apiBaseUrl;
+          keyInput.value = currentConfig.apiKey;
+          previewCheckbox.checked = currentConfig.previewMode;
+          configHint.textContent =
+            currentConfig.mode === 'mock'
+              ? 'モックモードでは supabase には送信されません。'
+              : `実APIモード: ${currentConfig.apiBaseUrl} に POST し、supabase の submissions に保存されます。`;
+        }
+
+        const templates = {
+          clean: {
+            name: '山田 太郎',
+            company: '株式会社フォームブロッカー',
+            email: 'taro@example.com',
+            message: '資料請求について教えてください。御社サービスの導入を検討しています。',
+          },
+          challenge: {
+            name: '佐藤 花子',
+            company: 'チャレンジ株式会社',
+            email: 'hanako@example.com',
+            message: 'チャレンジ確認です。こちらの送信が営業目的かどうかを判定してください。',
+          },
+          sales: {
+            name: '営業 太郎',
+            company: 'スーパーセールス',
+            email: 'sales@example.com',
+            message:
+              '今すぐ御社向けの特別オファーをご案内します。https://calendly.com/sales-demo で商談を設定してください。',
+          },
+        };
+
+        document.querySelectorAll('[data-template]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const template = templates[button.dataset.template];
+            if (!template) return;
+            Object.entries(template).forEach(([key, value]) => {
+              const input = form.elements.namedItem(key);
+              if (input) {
+                input.value = value;
+              }
+            });
+            form.querySelector('[name="message"]')?.focus();
+          });
+        });
+
+        const renderStatus = (state, payload) => {
+          badge.dataset.state = state.toLowerCase();
+          badge.textContent = state.toUpperCase();
+          detail.textContent = JSON.stringify(payload, null, 2);
+        };
+
+        function bootstrapFormBlocker() {
+          if (!currentConfig.apiKey) {
+            window.alert('API Key を入力してください。');
+            return;
+          }
+
+          const useMock = currentConfig.mode === 'mock';
+
+          if (useMock) {
+            window.FormBlockerMockApi?.enable?.();
+          } else {
+            window.FormBlockerMockApi?.disable?.();
+          }
+
+          renderStatus('idle', {
+            message: '送信待機中',
+            mode: useMock ? 'mock' : 'live',
+            previewMode: currentConfig.previewMode,
+          });
+
+          FormBlocker.init({
+            apiKey: currentConfig.apiKey,
+            apiBaseUrl: useMock ? window.location.origin : currentConfig.apiBaseUrl,
+            previewMode: currentConfig.previewMode,
+            debug: true,
+            onAllow: (result) => renderStatus('allow', result),
+            onHold: (result) => renderStatus('hold', result),
+            onBlock: (result) => renderStatus('block', result),
+            onChallenge: (result, allow) => {
+              renderStatus('challenge', result);
+              const confirmed = window.confirm(
+                `${result.message}\n\n「OK」で送信を続行${currentConfig.previewMode ? '（previewModeのためサーバーには送信されません）' : ''}。`
+              );
+              if (confirmed) {
+                allow();
+              }
+            },
+            onError: (error) => {
+              renderStatus('error', error);
+            },
+          });
+        }
+
+        applyButton.addEventListener('click', () => {
+          currentConfig = {
+            mode: modeSelect.value,
+            apiBaseUrl: baseInput.value.trim() || defaultConfig.apiBaseUrl,
+            apiKey: keyInput.value.trim(),
+            previewMode: previewCheckbox.checked,
+          };
+          saveConfig();
+          syncUi();
+          bootstrapFormBlocker();
+        });
+
+        syncUi();
+        bootstrapFormBlocker();
+      })();
+    </script>
+  </body>
+</html>

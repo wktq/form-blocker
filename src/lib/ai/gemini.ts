@@ -1,6 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+const apiKey = process.env.GOOGLE_GEMINI_API_KEY || '';
+const modelName = process.env.GOOGLE_GEMINI_MODEL || 'gemini-1.5-flash-latest';
+
+const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
 export interface AIEvaluationResult {
   isSales: boolean;
@@ -15,7 +18,11 @@ export async function evaluateWithAI(
   formData: Record<string, any>
 ): Promise<AIEvaluationResult> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    if (!genAI) {
+      throw new Error('GOOGLE_GEMINI_API_KEY is not set');
+    }
+
+    const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `
 あなたはWebフォーム送信内容の分析AIです。以下の送信内容を分析し、営業目的かスパムかを判定してください。
@@ -70,7 +77,20 @@ reasoningには、判定理由を日本語で簡潔に（100文字程度）説�
 
     return evaluation;
   } catch (error) {
+    const isConfigError =
+      error instanceof Error &&
+      (error.message.includes('API key') ||
+        error.message.includes('models/') ||
+        error.message.includes('not found'));
+
     console.error('AI evaluation error:', error);
+
+    if (isConfigError) {
+      console.warn(
+        'Falling back to rule-based evaluation only. Check GOOGLE_GEMINI_API_KEY / GOOGLE_GEMINI_MODEL.'
+      );
+    }
+
     // AIエラー時はフォールバック
     return {
       isSales: false,

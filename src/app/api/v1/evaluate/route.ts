@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { EvaluateRequest, EvaluateResponse, FormConfig } from '@/types';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { evaluateWithAI } from '@/lib/ai/gemini';
+import { analyzeFormContent, DEFAULT_SALES_KEYWORDS, DEFAULT_SPAM_KEYWORDS } from '@/lib/evaluation/rules';
 
 // ルールベース判定エンジン
 function ruleBasedEvaluation(
@@ -14,46 +15,46 @@ function ruleBasedEvaluation(
   let spamScore = 0;
   const reasons: string[] = [];
 
-  // フォーム内容を文字列に変換
-  const content = Object.values(form_data).join(' ').toLowerCase();
+  const analysis = analyzeFormContent(form_data, {
+    bannedKeywords: config.banned_keywords ?? [],
+    blockedDomains: config.blocked_domains ?? [],
+  });
 
-  // URL検出（設定で有効な場合）
-  if (config.enable_url_detection) {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const urls = content.match(urlRegex) || [];
-    if (urls.length > 0) {
-      salesScore += 0.3;
-      reasons.push('url_detected');
-    }
+  if (config.enable_url_detection !== false && analysis.urls.length > 0) {
+    salesScore += 0.3;
+    reasons.push('url_detected');
   }
 
-  // 禁止キーワード検出
-  const foundBannedKeywords = config.banned_keywords.filter(kw =>
-    content.includes(kw.toLowerCase())
-  );
-  if (foundBannedKeywords.length > 0) {
-    salesScore += 0.2 * foundBannedKeywords.length;
+  if (config.enable_url_detection !== false && analysis.schedulingUrls.length > 0) {
+    salesScore += 0.3;
+    reasons.push('scheduling_url');
+  }
+
+  if (analysis.bannedKeywords.length > 0) {
+    salesScore += 0.2 * analysis.bannedKeywords.length;
     reasons.push('banned_keywords');
   }
 
-  // デフォルト営業キーワード検出
-  const defaultSalesKeywords = ['営業', 'セールス', '提案', '御社', '貴社', '販売', '広告', '代理店'];
-  const foundSalesKeywords = defaultSalesKeywords.filter(kw => content.includes(kw));
-  if (foundSalesKeywords.length > 0) {
-    salesScore += 0.15 * foundSalesKeywords.length;
+  if (analysis.salesKeywords.length > 0) {
+    const matchCount = analysis.salesKeywords.filter((kw) => DEFAULT_SALES_KEYWORDS.includes(kw)).length;
+    salesScore += 0.15 * matchCount;
     reasons.push('sales_keywords');
   }
 
-  // スパムキーワード検出
-  const spamKeywords = ['今すぐ', '限定', '無料', '特別', 'クリック'];
-  const foundSpamKeywords = spamKeywords.filter(kw => content.includes(kw));
-  if (foundSpamKeywords.length > 0) {
-    spamScore += 0.3 * foundSpamKeywords.length;
+  if (analysis.spamKeywords.length > 0) {
+    const matchCount = analysis.spamKeywords.filter((kw) => DEFAULT_SPAM_KEYWORDS.includes(kw)).length;
+    spamScore += 0.3 * matchCount;
     reasons.push('spam_keywords');
   }
 
+  if (analysis.blockedDomainMatches.length > 0) {
+    salesScore += 0.4;
+    const domainReasons = analysis.blockedDomainMatches.map((domain) => `blocked_domain:${domain}`);
+    reasons.push(...domainReasons);
+  }
+
   // ペースト検出（設定で有効な場合）
-  if (config.enable_paste_detection && behavioral_data?.paste_detected) {
+  if (config.enable_paste_detection !== false && behavioral_data?.paste_detected) {
     salesScore += 0.2;
     reasons.push('paste_detected');
   }
@@ -95,26 +96,26 @@ async function evaluateSubmission(
   spamScore = Math.min(Math.max(spamScore, 0), 1.0);
 
   // 判定決定（設定の閾値を使用）
-  let decision: 'allow' | 'challenge' | 'hold' | 'block';
+  let decision: 'allowed' | 'challenged' | 'held' | 'blocked';
   if (salesScore >= config.threshold_spam || spamScore >= config.threshold_spam) {
-    decision = 'block';
+    decision = 'blocked';
   } else if (salesScore >= config.threshold_sales || spamScore >= config.threshold_sales) {
-    decision = 'challenge';
+    decision = 'challenged';
   } else if (salesScore >= (config.threshold_sales - 0.2) || spamScore >= (config.threshold_sales - 0.2)) {
-    decision = 'hold';
+    decision = 'held';
   } else {
-    decision = 'allow';
+    decision = 'allowed';
   }
 
   // メッセージ生成
   const messages = {
-    allow: '送信が許可されました',
-    challenge: '追加の確認が必要です。営業目的ではないことを確認してください。',
-    hold: '送信内容を確認中です。しばらくお待ちください。',
-    block: '送信がブロックされました。営業目的またはスパムの可能性があります。',
+    allowed: '送信が許可されました',
+    challenged: '追加の確認が必要です。営業目的ではないことを確認してください。',
+    held: '送信内容を確認中です。しばらくお待ちください。',
+    blocked: '送信がブロックされました。営業目的またはスパムの可能性があります。',
   };
 
-  const response = {
+  const response: EvaluateResponse & { llm_reasoning?: string } = {
     success: true,
     submission_id: '', // Will be set after DB insert
     decision,
@@ -127,9 +128,9 @@ async function evaluateSubmission(
     llm_reasoning: aiResult.reasoning,
   };
 
-  if (decision === 'challenge') {
+  if (decision === 'challenged') {
     response.challenge = {
-      type: 'self_report' as const,
+      type: 'self_report',
       question: 'この送信は営業目的ではありませんか？',
     };
   }
@@ -208,7 +209,86 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const config = form.form_configs[0];
+    let config = form.form_configs?.[0];
+
+    if (!config) {
+      const defaultConfig = {
+        form_id: form.id,
+        enable_url_detection: true,
+        enable_paste_detection: true,
+        threshold_sales: 0.7,
+        threshold_spam: 0.85,
+        banned_keywords: [] as string[],
+        allowed_domains: [] as string[],
+        blocked_domains: [] as string[],
+        form_selector: 'form',
+      };
+
+      const { data: insertedConfig, error: upsertError } = await supabase
+        .from('form_configs')
+        .upsert(defaultConfig, { onConflict: 'form_id' })
+        .select('*')
+        .single();
+
+      if (upsertError || !insertedConfig) {
+        console.error('Failed to create default form config:', upsertError);
+
+        // 競合が起きた場合は再取得してみる
+        const { data: fallbackConfig } = await supabase
+          .from('form_configs')
+          .select('*')
+          .eq('form_id', form.id)
+          .maybeSingle();
+
+        if (fallbackConfig) {
+          config = fallbackConfig as unknown as FormConfig;
+        } else {
+          return NextResponse.json(
+            {
+              success: false,
+              error: {
+                code: 'CONFIG_ERROR',
+                message: 'Failed to load form configuration',
+              },
+            },
+            { status: 500 }
+          );
+        }
+      } else {
+        config = insertedConfig as unknown as FormConfig;
+      }
+    }
+
+    if (!config) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'CONFIG_ERROR',
+            message: 'Form configuration not found',
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    // null安全なデフォルト値
+    config = {
+      ...config,
+      banned_keywords: config.banned_keywords ?? [],
+      allowed_domains: config.allowed_domains ?? [],
+      blocked_domains: config.blocked_domains ?? [],
+      threshold_sales: typeof config.threshold_sales === 'number' ? config.threshold_sales : 0.7,
+      threshold_spam: typeof config.threshold_spam === 'number' ? config.threshold_spam : 0.85,
+      enable_url_detection:
+        typeof config.enable_url_detection === 'boolean' ? config.enable_url_detection : true,
+      enable_paste_detection:
+        typeof config.enable_paste_detection === 'boolean' ? config.enable_paste_detection : true,
+      form_selector:
+        typeof config.form_selector === 'string' && config.form_selector.trim().length
+          ? config.form_selector
+          : 'form',
+    };
 
     // 評価実行
     const result = await evaluateSubmission(body, config);
@@ -222,10 +302,10 @@ export async function POST(request: NextRequest) {
         score_sales: result.scores.sales,
         score_spam: result.scores.spam,
         final_decision: result.decision,
-        content: body.form_data,
-        metadata: body.metadata,
+        content: body.form_data as any,
+        metadata: body.metadata as any,
         detection_reasons: result.reasons,
-        llm_reasoning: result.llm_reasoning,
+        llm_reasoning: result.llm_reasoning || null,
         ip_address: body.metadata.ip_address || null,
         user_agent: body.metadata.user_agent || null,
       })

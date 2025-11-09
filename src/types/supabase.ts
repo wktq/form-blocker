@@ -86,6 +86,8 @@ export interface Database {
           threshold_spam: number
           banned_keywords: string[]
           allowed_domains: string[]
+          blocked_domains: string[]
+          form_selector: string
           created_at: string
           updated_at: string
         }
@@ -98,6 +100,8 @@ export interface Database {
           threshold_spam?: number
           banned_keywords?: string[]
           allowed_domains?: string[]
+          blocked_domains?: string[]
+          form_selector?: string
           created_at?: string
           updated_at?: string
         }
@@ -110,6 +114,8 @@ export interface Database {
           threshold_spam?: number
           banned_keywords?: string[]
           allowed_domains?: string[]
+          blocked_domains?: string[]
+          form_selector?: string
           created_at?: string
           updated_at?: string
         }
@@ -268,7 +274,10 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_api_key: {
+        Args: Record<string, never>
+        Returns: string
+      }
     }
     Enums: {
       submission_status: 'allowed' | 'challenged' | 'held' | 'blocked'

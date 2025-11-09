@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     // クエリパラメータ取得
     const { searchParams } = new URL(request.url);
     const formId = searchParams.get('form_id');
-    const status = searchParams.get('status');
+    const status = searchParams.get('status') as 'allowed' | 'challenged' | 'held' | 'blocked' | null;
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     if (formId) {
       query = query.eq('form_id', formId);
     }
-    if (status) {
+    if (status && ['allowed', 'challenged', 'held', 'blocked'].includes(status)) {
       query = query.eq('status', status);
     }
 
