@@ -6,11 +6,22 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const protectedRoutes = ['/dashboard', '/forms', '/submissions', '/settings', '/embed'];
+  const isProtectedRoute = protectedRoutes.some((path) =>
+    request.nextUrl.pathname === path ||
+    request.nextUrl.pathname.startsWith(`${path}/`)
+  );
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error('Supabase環境変数が設定されていません');
+    if (isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
@@ -45,8 +56,8 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protect dashboard routes
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  // Protect authenticated routes
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

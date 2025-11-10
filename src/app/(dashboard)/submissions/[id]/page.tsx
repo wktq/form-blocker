@@ -26,15 +26,12 @@ export default function SubmissionDetailPage({
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/submissions/${params.id}`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(`/api/submissions/${params.id}`);
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -63,7 +60,6 @@ export default function SubmissionDetailPage({
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [params.id]);
 

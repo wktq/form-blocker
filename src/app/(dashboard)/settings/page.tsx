@@ -27,15 +27,12 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!currentForm) return;
     let cancelled = false;
-    const controller = new AbortController();
 
     const load = async () => {
       setLoading(true);
       setMessage(null);
       try {
-        const response = await fetch(`/api/forms/${currentForm.id}`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(`/api/forms/${currentForm.id}`);
         if (!response.ok) {
           throw new Error('フォーム設定の取得に失敗しました');
         }
@@ -72,7 +69,6 @@ export default function SettingsPage() {
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [currentForm]);
 

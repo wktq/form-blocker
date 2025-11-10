@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { evaluateWithAI } from '@/lib/ai/gemini';
 import { analyzeFormContent, DEFAULT_SALES_KEYWORDS, DEFAULT_SPAM_KEYWORDS } from '@/lib/evaluation/rules';
 
+export const dynamic = 'force-dynamic';
+
 // ルールベース判定エンジン
 function ruleBasedEvaluation(
   request: EvaluateRequest,

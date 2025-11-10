@@ -183,6 +183,19 @@ CREATE INDEX idx_appeals_submission_id ON appeals(submission_id);
 
 ---
 
+### 2.3 Stripe課金テーブル (2025-02追加)
+
+Stripe課金連携を想定した最低限のデータモデルを Supabase 上に追加した。
+
+| テーブル | 役割 | 主なカラム |
+| --- | --- | --- |
+| `billing_plans` | プランマスタ。価格・通貨・課金間隔・機能リスト・Stripe Price ID を保持。`code`（free/pro/scale）が主キー。 | `amount` (整数, JPY), `interval` (ENUM: month/year), `features` (text[]), `metadata` (limits JSON), `is_default` |
+| `billing_accounts` | ユーザー毎の課金状態。`user_id` にユニーク制約。Stripe Customer/Sub IDs、現在のプラン、次回請求予定、使用上限 JSON を保持。 | `plan_code` (FK→plans), `subscription_status` (ENUM), `trial_ends_at`, `current_period_end`, `usage_limits` (jsonb) |
+| `billing_invoices` | UIで表示する請求履歴メタ。Stripe連携後はWebhookで同期予定。 | `status` (ENUM), `amount_due/paid`, `billing_reason`, `period_start/end`, `hosted_invoice_url` |
+
+すべてのテーブルで RLS を有効化済み。`billing_plans` は SELECT 全許可、`billing_accounts` / `billing_invoices` は `auth.uid()` に紐づく行のみ参照・更新できる。  
+`billing_accounts` の `usage_limits` にはプランの `metadata.limits` を正規化した JSON（フォーム数/送信数/メンバー数/保持期間など）を格納。Stripe 実装後は同期ジョブからも更新できる想定。
+
 ## 3. API仕様
 
 ### 3.1 認証方式
@@ -382,6 +395,25 @@ interface StatsResponse {
 
 ---
 
+### 3.4 Stripe課金API (2025-02更新)
+
+- **GET `/api/billing`**
+  - 認証済みユーザーの `billing_accounts` を初期化しつつ、現在の課金状態・利用可能プラン・最新12件の `billing_invoices` を返却。
+- **POST `/api/billing/subscription`**
+  - `action` に応じて Stripe API + Supabase を更新。
+    - `change_plan`: `plan_code` 必須。有料プランの場合は Stripe Checkout Session を生成し `checkoutUrl` を返却。無料プランは即時反映し、既存 Stripe Subscription があればキャンセル。
+    - `cancel`: Stripe Subscription (`cancel_at_period_end=true`) と Supabase の `cancel_at_period_end` を同期。
+    - `resume`: Stripe Subscription の `cancel_at_period_end=false`、ローカル状態更新。
+  - `checkoutUrl` が返却された場合はフロントエンドが Stripe にリダイレクト。それ以外は最新の `account` を返す。
+- **POST `/api/billing/session`**
+  - Checkout success URL に含まれる `session_id` を受け取り、Stripe から Session/Subscription/Invoice を取得→`billing_accounts` と `billing_invoices` を更新。
+- **POST `/api/billing/portal`**
+  - `billing_accounts.stripe_customer_id` を確保した上で Billing Portal Session を生成し、`url` を返却。
+
+Webhook 連携前は `session_id` 経由で同期しているが、将来的には Stripe Webhook（`STRIPE_WEBHOOK_SECRET`）で自動反映させる想定。
+
+---
+
 ## 4. フロントエンド詳細仕様
 
 ### 4.1 画面構成 (MVP)
@@ -526,6 +558,19 @@ interface SubmissionListItem {
 
 4. **アクション**
    - 異議申立てフォームへのリンク (blocked の場合)
+
+---
+
+#### 4.2.6 課金設定画面 (`/billing`) ※2025-02追加
+
+- サイドバーに「課金設定 (Billing)」を常設。`/billing` で `billing_accounts` の内容を可視化。
+- 構成:
+  1. **プラン概要カード**: 現在のプラン名/価格、`subscription_status` バッジ、`current_period_end` と `trial_ends_at` を表示。`cancel_at_period_end=true` の場合は警告バッジと「解約予定を取り消す」ボタンを表示。
+  2. **利用上限リスト**: `usage_limits` JSON をそのままリストレンダリング（forms/submissions/members/retention_days など）。
+  3. **プラン一覧**: `billing_plans` をカード表示。現行プランは強調、他プランには「このプランに変更」ボタン（`POST /api/billing/subscription` with `change_plan`）。有料プランの場合は `checkoutUrl` が返却され次第 Stripe Checkout へ遷移。
+  4. **支払い方法カード**: `default_payment_method` JSON (brand/last4/exp) を表示し、「支払い方法を更新」ボタンから `POST /api/billing/portal` を叩いて Stripe Billing Portal を開く。
+  5. **請求履歴カード**: `billing_invoices` の最新12件をタイムライン表示（金额/通貨/ステータス/発行日）。
+- 画面マウント時に `GET /api/billing` をフェッチし、クエリに `session_id` が含まれる場合は `POST /api/billing/session` を呼び出して Checkout 結果を確定させた後に再フェッチ。
 
 ---
 

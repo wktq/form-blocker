@@ -10,7 +10,7 @@ export default function EmbedCodePage() {
   const [copied, setCopied] = useState(false);
   const { currentForm, loading, error } = useFormContext();
 
-  const embedCode = `<!-- Form Blocker -->
+  const embedCode = `<!-- FormBlocker -->
 <script src="${process.env.NEXT_PUBLIC_CDN_URL || 'http://localhost:3000'}/embed/form-blocker.min.js"></script>
 <script>
   FormBlocker.init({
@@ -93,7 +93,7 @@ export default function EmbedCodePage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 mb-4">
-            以下のフォームでForm Blockerの動作をテストできます
+            以下のフォームでFormBlockerの動作をテストできます
           </p>
           <div className="bg-gray-50 rounded-lg p-6">
             <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>

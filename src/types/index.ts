@@ -155,3 +155,77 @@ export interface AnalyticsSummary {
   avg_score_sales: number;
   avg_score_spam: number;
 }
+
+// 課金・Stripe
+export type BillingPlanInterval = 'month' | 'year';
+export type BillingSubscriptionStatus = 'inactive' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
+export type BillingInvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+
+export interface BillingPlan {
+  code: string;
+  name: string;
+  description?: string | null;
+  amount: number;
+  currency: string;
+  interval: BillingPlanInterval;
+  trial_period_days?: number | null;
+  stripe_price_id?: string | null;
+  features: string[];
+  metadata?: Record<string, unknown>;
+  is_default: boolean;
+  is_archived: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BillingPaymentMethod {
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+}
+
+export interface BillingAccount {
+  id: string;
+  user_id: string;
+  plan_code: string;
+  subscription_status: BillingSubscriptionStatus;
+  cancel_at_period_end: boolean;
+  trial_ends_at?: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  billing_email?: string | null;
+  default_payment_method?: BillingPaymentMethod | null;
+  usage_limits: Record<string, number>;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  plan?: BillingPlan | null;
+}
+
+export interface BillingInvoice {
+  id: string;
+  account_id: string;
+  status: BillingInvoiceStatus;
+  amount_due: number;
+  amount_paid: number;
+  currency: string;
+  hosted_invoice_url?: string | null;
+  invoice_pdf?: string | null;
+  billing_reason?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface BillingOverviewResponse {
+  account: BillingAccount;
+  plans: BillingPlan[];
+  invoices: BillingInvoice[];
+  portalUrl: string | null;
+  checkoutUrl: string | null;
+}

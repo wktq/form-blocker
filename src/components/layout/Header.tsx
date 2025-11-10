@@ -1,10 +1,10 @@
 'use client';
 
-import { useAuth } from '@/lib/auth/context';
-import { copyToClipboard } from '@/lib/utils';
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { copyToClipboard } from '@/lib/utils';
+import { useAuth } from '@/lib/auth/context';
 import { useFormContext } from '@/lib/forms/context';
 
 export function Header() {
@@ -25,60 +25,66 @@ export function Header() {
     router.push('/login');
   };
 
-  if (!currentForm) {
-    return (
-      <header className="bg-white border-b border-gray-200">
-        <div className="px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Form Blocker</h2>
-            </div>
-            {user && (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">{user.email}</span>
-                <Button variant="secondary" onClick={handleSignOut} size="sm">
-                  ログアウト
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-    );
-  }
-
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="px-8 py-4">
-        <div className="flex items-center justify-between">
+    <header className="rounded-[28px] border border-slate-200/70 bg-white/90 px-6 py-6 shadow-[0_25px_60px_rgba(148,163,184,0.25)] backdrop-blur">
+      {currentForm ? (
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <p className="text-[11px] uppercase tracking-[0.45em] text-slate-500">
+              Active Form
+            </p>
+            <h2 className="mt-2 font-display text-3xl text-slate-900">
               {currentForm.name}
             </h2>
-            <div className="flex items-center space-x-3 mt-1">
-              <span className="text-sm text-gray-500">{currentForm.site_url}</span>
-              <span className="text-gray-300">•</span>
-              <code className="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
+            <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+              <span className="inline-flex items-center gap-2 rounded-full bg-slate-900/5 px-3 py-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                {currentForm.site_url}
+              </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 font-mono text-xs text-slate-700">
                 {currentForm.api_key}
-              </code>
+              </span>
               <button
                 onClick={handleCopy}
-                className="text-xs text-primary-600 hover:text-primary-700"
+                className="text-xs font-semibold text-slate-700 underline decoration-dotted decoration-slate-300 transition hover:text-slate-900"
               >
-                {copied ? '✓ コピー済み' : 'コピー'}
+                {copied ? '✓ コピー済み' : 'APIキーをコピー'}
               </button>
             </div>
           </div>
           {user && (
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">{user.email}</span>
+            <div className="flex flex-col items-start gap-3 text-left sm:flex-row sm:items-center sm:text-right">
+              <div className="text-sm text-slate-500">
+                <p className="font-semibold text-slate-900">
+                  {user.user_metadata?.name || user.email}
+                </p>
+                <p className="text-xs uppercase tracking-[0.35em] text-slate-400">
+                  管理者
+                </p>
+              </div>
               <Button variant="secondary" onClick={handleSignOut} size="sm">
                 ログアウト
               </Button>
             </div>
           )}
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="mt-1 text-sm text-slate-600">
+              まずはフォームを選択してください。
+            </p>
+          </div>
+          {user && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-500">{user.email}</span>
+              <Button variant="secondary" onClick={handleSignOut} size="sm">
+                ログアウト
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </header>
   );
 }

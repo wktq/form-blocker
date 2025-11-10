@@ -46,6 +46,8 @@ declare global {
   }
 }
 
+const PREVIEW_FORM_SELECTOR = '#fb-preview-form';
+
 const createDefaultDetection = (): DetectionSnapshot => ({
   urlDetected: false,
   detectedUrls: [],
@@ -57,6 +59,236 @@ const createDefaultDetection = (): DetectionSnapshot => ({
   contentLength: 0,
   updatedAt: Date.now(),
 });
+
+const FALLBACK_SALES_KEYWORDS = [
+  '営業',
+  'セールス',
+  '提案',
+  '御社',
+  '貴社',
+  '販売',
+  '広告',
+  '代理店',
+];
+const FALLBACK_BANNED_KEYWORDS = ['無料', '限定', '販売促進', '広告代理店'];
+const FALLBACK_SCHEDULING_DOMAINS = [
+  'calendly.com',
+  'youcanbook.me',
+  'scheduleonce.com',
+  'acuityscheduling.com',
+  'savvycal.com',
+  'hubspot.com',
+  'meetings.hubspot.com',
+  'tidycal.com',
+  'cal.com',
+];
+
+const URL_REGEX = /(https?:\/\/[^\s]+)/gi;
+
+function extractHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    const match = url.match(/https?:\/\/([^/\s]+)/i);
+    return match?.[1]?.toLowerCase() ?? null;
+  }
+}
+
+function normalizeDomain(domain: string): string {
+  return domain.trim().toLowerCase();
+}
+
+function matchesDomain(domain: string, target: string): boolean {
+  return domain === target || domain.endsWith(`.${target}`);
+}
+
+function collectEmailDomainsFromFragments(values: string[]): string[] {
+  const domains = new Set<string>();
+  values.forEach((value) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      return;
+    }
+    const regex = /[\w.+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/gi;
+    const matches = Array.from(value.matchAll(regex));
+    for (const match of matches) {
+      if (match[1]) {
+        domains.add(match[1].toLowerCase());
+      }
+    }
+  });
+  return Array.from(domains);
+}
+
+function gatherFormValueFragments(form: HTMLFormElement): string[] {
+  const fragments: string[] = [];
+  const elements = Array.from(form.elements) as Array<HTMLInputElement | HTMLTextAreaElement>;
+  elements.forEach((element) => {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+      return;
+    }
+    if (!element.name) {
+      return;
+    }
+    if (element instanceof HTMLInputElement && element.type === 'checkbox') {
+      if (element.checked) {
+        fragments.push(element.value);
+      }
+      return;
+    }
+    if (element instanceof HTMLInputElement && element.type === 'radio') {
+      if (element.checked) {
+        fragments.push(element.value);
+      }
+      return;
+    }
+    fragments.push(element.value);
+  });
+  return fragments;
+}
+
+function buildLocalDetectionSnapshot(
+  form: HTMLFormElement,
+  options: {
+    bannedKeywords?: string[];
+    blockedDomains?: string[];
+    pasteDetected?: boolean;
+  }
+): DetectionSnapshot {
+  const fragments = gatherFormValueFragments(form);
+  const combinedRaw = fragments.join(' ');
+  const combinedLower = combinedRaw.toLowerCase();
+
+  const detectedUrls = combinedRaw.match(URL_REGEX) ?? [];
+  const schedulingUrls = detectedUrls.filter((url) => {
+    const domain = extractHostname(url);
+    if (!domain) return false;
+    return FALLBACK_SCHEDULING_DOMAINS.some((target) => matchesDomain(domain, target));
+  });
+
+  const normalizedSales = FALLBACK_SALES_KEYWORDS.map((keyword) => keyword.toLowerCase());
+  const salesKeywords = normalizedSales.filter(
+    (keyword) => keyword && combinedLower.includes(keyword)
+  );
+
+  const sourceBanned =
+    options?.bannedKeywords && options.bannedKeywords.length > 0
+      ? options.bannedKeywords
+      : FALLBACK_BANNED_KEYWORDS;
+  const normalizedBanned = sourceBanned.map((keyword) => keyword.toLowerCase());
+  const bannedKeywords = normalizedBanned.filter(
+    (keyword) => keyword && combinedLower.includes(keyword)
+  );
+
+  const configuredBlockedDomains = (options?.blockedDomains || [])
+    .map(normalizeDomain)
+    .filter(Boolean);
+  const emailDomains = collectEmailDomainsFromFragments(fragments);
+  const urlDomains = Array.from(
+    new Set(
+      detectedUrls
+        .map((url) => extractHostname(url))
+        .filter((domain): domain is string => Boolean(domain))
+        .map(normalizeDomain)
+    )
+  );
+  const candidateDomains = Array.from(
+    new Set([...urlDomains, ...emailDomains.map(normalizeDomain)])
+  );
+  const blockedDomains =
+    configuredBlockedDomains.length > 0
+      ? candidateDomains.filter((domain) =>
+          configuredBlockedDomains.some((blocked) => matchesDomain(domain, blocked))
+        )
+      : [];
+
+  return {
+    urlDetected: detectedUrls.length > 0,
+    detectedUrls,
+    schedulingUrls,
+    salesKeywords,
+    bannedKeywords,
+    blockedDomains,
+    pasteDetected: Boolean(options?.pasteDetected),
+    contentLength: combinedLower.length,
+    updatedAt: Date.now(),
+  };
+}
+
+function extractFormDataObject(form: HTMLFormElement): Record<string, string | string[]> {
+  const data: Record<string, string | string[]> = {};
+  const elements = Array.from(form.elements) as Array<HTMLInputElement | HTMLTextAreaElement>;
+
+  elements.forEach((element) => {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement)) {
+      return;
+    }
+
+    const name = element.name || element.id;
+    if (!name) {
+      return;
+    }
+
+    const type = element instanceof HTMLInputElement ? element.type : undefined;
+
+    if (type === 'checkbox') {
+      const input = element as HTMLInputElement;
+      if (!Array.isArray(data[name])) {
+        data[name] = [];
+      }
+      if (input.checked) {
+        (data[name] as string[]).push(input.value || 'on');
+      }
+      if (!input.checked && !(name in data)) {
+        data[name] = [];
+      }
+      return;
+    }
+
+    if (type === 'radio') {
+      const input = element as HTMLInputElement;
+      if (input.checked) {
+        data[name] = input.value;
+      } else if (!(name in data)) {
+        data[name] = '';
+      }
+      return;
+    }
+
+    data[name] = element.value;
+  });
+
+  return data;
+}
+
+function buildFallbackEvaluatePayload(
+  form: HTMLFormElement,
+  apiKey: string,
+  options: {
+    pasteDetected: boolean;
+    formSelector: string;
+    formLoadTime: number;
+  }
+) {
+  const formData = extractFormDataObject(form);
+  const metadata = {
+    url: typeof window !== 'undefined' ? window.location.href : '',
+    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+    timestamp: Date.now(),
+    form_selector: options.formSelector,
+  };
+
+  const behavioral = {
+    paste_detected: options.pasteDetected,
+    time_to_submit: (Date.now() - options.formLoadTime) / 1000,
+  };
+
+  return {
+    api_key: apiKey,
+    form_data: formData,
+    metadata,
+    behavioral_data: behavioral,
+  };
+}
 
 export default function FormDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -71,17 +303,21 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
   const [lastDecision, setLastDecision] = useState<DecisionRecord | null>(null);
   const [challengeState, setChallengeState] = useState<ChallengeState | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [scriptDetectionActive, setScriptDetectionActive] = useState(false);
+  const [previewSubmitting, setPreviewSubmitting] = useState(false);
+  const fallbackPasteDetectedRef = useRef(false);
+  const formLoadTimeRef = useRef<number>(Date.now());
   const scriptVersion = useMemo(() => Date.now().toString(), []);
   const embedSnippet = useMemo(() => {
     const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL || 'http://localhost:3000';
     const apiKey = form?.api_key ?? 'fb_live_xxxxxxxxxxxx';
     const selectorValue = config?.form_selector?.trim() ?? '';
-    const normalizedSelector = selectorValue.length > 0 ? selectorValue : 'form';
+    const normalizedSelector = selectorValue.length > 0 ? selectorValue : PREVIEW_FORM_SELECTOR;
     const needsSelectorLine = normalizedSelector !== 'form';
     const selectorLine = needsSelectorLine
       ? `    selector: '${normalizedSelector.replace(/'/g, "\\'")}',\n`
       : '';
-    return `<!-- Form Blocker -->
+    return `<!-- FormBlocker -->
 <script src="${cdnUrl}/embed/form-blocker.min.js"></script>
 <script>
   FormBlocker.init({
@@ -92,15 +328,12 @@ ${selectorLine}  });
 
   useEffect(() => {
     let cancelled = false;
-    const controller = new AbortController();
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/forms/${params.id}`, {
-          signal: controller.signal,
-        });
+        const response = await fetch(`/api/forms/${params.id}`);
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -135,7 +368,6 @@ ${selectorLine}  });
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [params.id, selectForm]);
 
@@ -169,15 +401,33 @@ ${selectorLine}  });
     setLastDecision(null);
     setChallengeState(null);
     setErrorMessage(null);
+    fallbackPasteDetectedRef.current = false;
+    setScriptDetectionActive(false);
+    formLoadTimeRef.current = Date.now();
   }, [form?.id]);
 
   useEffect(() => {
-    if (!isScriptReady || !form || !formRef.current) {
+    if (!isScriptReady || !form) {
       return;
     }
 
+    let frameId: number | null = null;
+    let initialized = false;
+    setScriptDetectionActive(false);
+    fallbackPasteDetectedRef.current = false;
+
     const initialize = () => {
+      if (initialized) {
+        return;
+      }
+
+      if (!formRef.current) {
+        frameId = window.requestAnimationFrame(initialize);
+        return;
+      }
+
       if (!window.FormBlocker || typeof window.FormBlocker.init !== 'function') {
+        frameId = window.requestAnimationFrame(initialize);
         return;
       }
 
@@ -187,7 +437,7 @@ ${selectorLine}  });
 
       window.FormBlocker.init({
         apiKey: form.api_key,
-        selector: '#fb-preview-form',
+        selector: PREVIEW_FORM_SELECTOR,
         debug: true,
         previewMode: true,
         debugRules: {
@@ -195,6 +445,7 @@ ${selectorLine}  });
           blockedDomains: config?.blocked_domains || [],
         },
         onDetectionUpdate: (snapshot: DetectionSnapshot) => {
+          setScriptDetectionActive(true);
           setDetection(snapshot);
         },
         onAllow: (result: EvaluateResponse) => {
@@ -220,19 +471,134 @@ ${selectorLine}  });
               : typeof error === 'string'
               ? error
               : '未知のエラーが発生しました';
+          setScriptDetectionActive(false);
           setErrorMessage(message);
         },
       });
+
+      initialized = true;
     };
 
     initialize();
 
     return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
       if (window.FormBlocker && typeof window.FormBlocker.destroy === 'function') {
         window.FormBlocker.destroy();
       }
     };
   }, [isScriptReady, form, config?.banned_keywords, config?.blocked_domains]);
+
+  useEffect(() => {
+    if (scriptDetectionActive) {
+      return;
+    }
+
+    const formElement = formRef.current;
+    if (!formElement) {
+      return;
+    }
+
+    const updateSnapshot = () => {
+      const snapshot = buildLocalDetectionSnapshot(formElement, {
+        bannedKeywords: config?.banned_keywords,
+        blockedDomains: config?.blocked_domains,
+        pasteDetected: fallbackPasteDetectedRef.current,
+      });
+      setDetection(snapshot);
+    };
+
+    const handleInput = () => {
+      updateSnapshot();
+    };
+
+    const handlePaste = () => {
+      fallbackPasteDetectedRef.current = true;
+      updateSnapshot();
+    };
+
+    fallbackPasteDetectedRef.current = false;
+    updateSnapshot();
+
+    formElement.addEventListener('input', handleInput);
+    formElement.addEventListener('paste', handlePaste);
+
+    return () => {
+      formElement.removeEventListener('input', handleInput);
+      formElement.removeEventListener('paste', handlePaste);
+    };
+  }, [
+    scriptDetectionActive,
+    form?.id,
+    config?.banned_keywords,
+    config?.blocked_domains,
+  ]);
+
+  const applyEvaluationResult = (result: EvaluateResponse) => {
+    setErrorMessage(null);
+    setLastDecision({ result, timestamp: Date.now() });
+
+    if (result.decision === 'challenged') {
+      setChallengeState({
+        result,
+        allow: () => {
+          setChallengeState(null);
+        },
+      });
+      return;
+    }
+
+    setChallengeState(null);
+  };
+
+  const handlePreviewSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (scriptDetectionActive || !formRef.current || !form) {
+      return;
+    }
+
+    if (previewSubmitting) {
+      return;
+    }
+
+    setPreviewSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const payload = buildFallbackEvaluatePayload(formRef.current, form.api_key, {
+        pasteDetected: fallbackPasteDetectedRef.current,
+        formSelector: PREVIEW_FORM_SELECTOR,
+        formLoadTime: formLoadTimeRef.current,
+      });
+
+      const response = await fetch('/api/v1/evaluate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = await response.json();
+
+      if (!response.ok || !body?.success) {
+        const message =
+          typeof body?.error?.message === 'string'
+            ? body.error.message
+            : 'プレビュー用の判定リクエストに失敗しました';
+        throw new Error(message);
+      }
+
+      applyEvaluationResult(body as EvaluateResponse);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'プレビュー送信に失敗しました');
+    } finally {
+      setPreviewSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -343,7 +709,7 @@ ${selectorLine}  });
           <section id="preview">
             <Card>
               <CardHeader>
-                <CardTitle>埋め込みプレビュー</CardTitle>
+                <CardTitle>動作プレビュー</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-600">
@@ -362,7 +728,7 @@ ${selectorLine}  });
                   id="fb-preview-form"
                   ref={formRef}
                   className="space-y-4"
-                  onSubmit={(event) => event.preventDefault()}
+                  onSubmit={handlePreviewSubmit}
                 >
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -371,20 +737,20 @@ ${selectorLine}  });
                     <input
                       type="text"
                       name="name"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-white"
                       placeholder="山田太郎"
                       autoComplete="off"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-white">
                       メールアドレス
                     </label>
                     <input
                       type="email"
                       name="email"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-white"
                       placeholder="yamada@example.com"
                       autoComplete="off"
                     />
@@ -402,8 +768,12 @@ ${selectorLine}  });
                     />
                   </div>
 
-                  <Button type="submit" className="w-full">
-                    プレビュー送信
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={!scriptDetectionActive && previewSubmitting}
+                  >
+                    {!scriptDetectionActive && previewSubmitting ? '判定実行中...' : 'プレビュー送信'}
                   </Button>
                 </form>
 

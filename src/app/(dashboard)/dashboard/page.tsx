@@ -34,19 +34,14 @@ export default function DashboardPage() {
     if (!currentForm) return;
 
     let cancelled = false;
-    const controller = new AbortController();
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
         const [analyticsRes, submissionsRes] = await Promise.all([
-          fetch(`/api/analytics?form_id=${currentForm.id}&period=7d`, {
-            signal: controller.signal,
-          }),
-          fetch(`/api/submissions?form_id=${currentForm.id}&limit=50`, {
-            signal: controller.signal,
-          }),
+          fetch(`/api/analytics?form_id=${currentForm.id}&period=7d`),
+          fetch(`/api/submissions?form_id=${currentForm.id}&limit=50`),
         ]);
 
         if (!analyticsRes.ok) {
@@ -80,7 +75,6 @@ export default function DashboardPage() {
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [currentForm]);
 
@@ -137,8 +131,8 @@ export default function DashboardPage() {
       )}
 
       {/* 統計カード */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="stats shadow">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="stats border border-slate-200 bg-white text-slate-900 shadow">
           <div className="stat">
             <div className="stat-title">総送信数</div>
             <div className="stat-value text-primary">
@@ -147,7 +141,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="stats shadow">
+        <div className="stats border border-slate-200 bg-white text-slate-900 shadow">
           <div className="stat">
             <div className="stat-title">ブロック数</div>
             <div className="stat-value text-error">
@@ -157,7 +151,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="stats shadow">
+        <div className="stats border border-slate-200 bg-white text-slate-900 shadow">
           <div className="stat">
             <div className="stat-title">許可数</div>
             <div className="stat-value text-success">
@@ -166,7 +160,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="stats shadow">
+        <div className="stats border border-slate-200 bg-white text-slate-900 shadow">
           <div className="stat">
             <div className="stat-title">チャレンジ</div>
             <div className="stat-value text-warning">

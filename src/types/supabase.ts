@@ -226,6 +226,191 @@ export interface Database {
           }
         ]
       }
+      billing_plans: {
+        Row: {
+          code: string
+          name: string
+          description: string | null
+          amount: number
+          currency: string
+          interval: Database['public']['Enums']['billing_plan_interval']
+          trial_period_days: number | null
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          features: string[]
+          metadata: Json
+          is_default: boolean
+          is_archived: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          name: string
+          description?: string | null
+          amount: number
+          currency?: string
+          interval?: Database['public']['Enums']['billing_plan_interval']
+          trial_period_days?: number | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          features?: string[]
+          metadata?: Json
+          is_default?: boolean
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          name?: string
+          description?: string | null
+          amount?: number
+          currency?: string
+          interval?: Database['public']['Enums']['billing_plan_interval']
+          trial_period_days?: number | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          features?: string[]
+          metadata?: Json
+          is_default?: boolean
+          is_archived?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      billing_accounts: {
+        Row: {
+          id: string
+          user_id: string
+          plan_code: string
+          subscription_status: Database['public']['Enums']['billing_subscription_status']
+          cancel_at_period_end: boolean
+          trial_ends_at: string | null
+          current_period_start: string | null
+          current_period_end: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          billing_email: string | null
+          default_payment_method: Json | null
+          usage_limits: Json
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan_code: string
+          subscription_status?: Database['public']['Enums']['billing_subscription_status']
+          cancel_at_period_end?: boolean
+          trial_ends_at?: string | null
+          current_period_start?: string | null
+          current_period_end?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          billing_email?: string | null
+          default_payment_method?: Json | null
+          usage_limits?: Json
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan_code?: string
+          subscription_status?: Database['public']['Enums']['billing_subscription_status']
+          cancel_at_period_end?: boolean
+          trial_ends_at?: string | null
+          current_period_start?: string | null
+          current_period_end?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          billing_email?: string | null
+          default_payment_method?: Json | null
+          usage_limits?: Json
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_accounts_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_accounts_plan_code_fkey"
+            columns: ["plan_code"]
+            referencedRelation: "billing_plans"
+            referencedColumns: ["code"]
+          }
+        ]
+      }
+      billing_invoices: {
+        Row: {
+          id: string
+          account_id: string
+          stripe_invoice_id: string | null
+          status: Database['public']['Enums']['billing_invoice_status']
+          amount_due: number
+          amount_paid: number
+          currency: string
+          hosted_invoice_url: string | null
+          invoice_pdf: string | null
+          billing_reason: string | null
+          period_start: string | null
+          period_end: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          stripe_invoice_id?: string | null
+          status?: Database['public']['Enums']['billing_invoice_status']
+          amount_due: number
+          amount_paid?: number
+          currency?: string
+          hosted_invoice_url?: string | null
+          invoice_pdf?: string | null
+          billing_reason?: string | null
+          period_start?: string | null
+          period_end?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          account_id?: string
+          stripe_invoice_id?: string | null
+          status?: Database['public']['Enums']['billing_invoice_status']
+          amount_due?: number
+          amount_paid?: number
+          currency?: string
+          hosted_invoice_url?: string | null
+          invoice_pdf?: string | null
+          billing_reason?: string | null
+          period_start?: string | null
+          period_end?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_invoices_account_id_fkey"
+            columns: ["account_id"]
+            referencedRelation: "billing_accounts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       appeals: {
         Row: {
           id: string
@@ -283,6 +468,9 @@ export interface Database {
       submission_status: 'allowed' | 'challenged' | 'held' | 'blocked'
       notification_type: 'email' | 'webhook' | 'dashboard'
       appeal_status: 'pending' | 'approved' | 'rejected'
+      billing_plan_interval: 'month' | 'year'
+      billing_subscription_status: 'inactive' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid'
+      billing_invoice_status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible'
     }
     CompositeTypes: {
       [_ in never]: never

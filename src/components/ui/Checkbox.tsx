@@ -3,10 +3,11 @@ import { cn } from '@/lib/utils';
 
 interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   label?: string;
+  labelClassName?: string;
 }
 
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ label, className, ...props }, ref) => {
+  ({ label, labelClassName, className, ...props }, ref) => {
     return (
       <div className="form-control">
         <label className="label cursor-pointer justify-start gap-2">
@@ -16,7 +17,16 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             className={cn('checkbox checkbox-primary', className)}
             {...props}
           />
-          {label && <span className="label-text">{label}</span>}
+          {label && (
+            <span
+              className={cn(
+                'text-sm font-medium text-gray-900 dark:text-gray-100',
+                labelClassName
+              )}
+            >
+              {label}
+            </span>
+          )}
         </label>
       </div>
     );

@@ -79,6 +79,11 @@ GEMINI_API_KEY=your_gemini_api_key_here
 # App Configuration
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_CDN_URL=http://localhost:3000
+
+# Stripe (本番/テストキーを指定)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxx
+STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxxx  # Webhook受信用（任意）
 ```
 
 ### 3. 開発サーバーの起動

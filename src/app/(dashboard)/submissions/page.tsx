@@ -20,15 +20,13 @@ export default function SubmissionsPage() {
   useEffect(() => {
     if (!currentForm) return;
     let cancelled = false;
-    const controller = new AbortController();
 
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
         const response = await fetch(
-          `/api/submissions?form_id=${currentForm.id}&limit=200`,
-          { signal: controller.signal }
+          `/api/submissions?form_id=${currentForm.id}&limit=200`
         );
         if (!response.ok) {
           throw new Error('送信履歴の取得に失敗しました');
@@ -53,7 +51,6 @@ export default function SubmissionsPage() {
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [currentForm]);
 

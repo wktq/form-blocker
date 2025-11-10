@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { translateSupabaseAuthError } from '@/lib/auth/errorMessages';
 
 interface AuthContextType {
   user: User | null;
@@ -42,7 +43,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
     });
-    if (error) throw error;
+    if (error) {
+      throw new Error(translateSupabaseAuthError(error));
+    }
   };
 
   const signUp = async (email: string, password: string, name?: string) => {
@@ -56,12 +59,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      throw new Error(translateSupabaseAuthError(error));
+    }
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (error) {
+      throw new Error(translateSupabaseAuthError(error));
+    }
   };
 
   const value = {

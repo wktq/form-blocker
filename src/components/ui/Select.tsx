@@ -13,13 +13,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
       <div className="form-control w-full">
         {label && (
           <label className="label">
-            <span className="label-text">{label}</span>
+            <span className="label-text text-slate-700">{label}</span>
           </label>
         )}
         <select
           ref={ref}
           className={cn(
-            'select select-bordered w-full',
+            'select select-bordered w-full border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-primary-200',
             error && 'select-error',
             className
           )}

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { BrandMark } from '@/components/layout/BrandMark';
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -34,9 +35,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Form Blocker</CardTitle>
-          <p className="text-center text-gray-600 mt-2">ログイン</p>
+        <CardHeader className="space-y-4 text-center">
+          <div className="flex justify-center">
+            <BrandMark
+              showTagline={false}
+              size="md"
+              variant="light"
+              href={null}
+            />
+          </div>
+          <p className="text-center text-gray-600">ログイン</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
