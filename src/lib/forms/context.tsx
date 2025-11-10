@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import type { Form, FormConfig } from '@/types';
+import { useAuth } from '@/lib/auth/context';
 
 interface FormWithConfig extends Form {
   form_configs?: FormConfig[];
@@ -49,8 +50,17 @@ export function FormProvider({ children }: { children: React.ReactNode }) {
   const [currentFormId, setCurrentFormId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
 
   const loadForms = useCallback(async () => {
+    if (!user) {
+      setForms([]);
+      setCurrentFormId(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -68,11 +78,12 @@ export function FormProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [currentFormId]);
+  }, [currentFormId, user]);
 
   useEffect(() => {
+    if (authLoading) return;
     void loadForms();
-  }, [loadForms]);
+  }, [authLoading, loadForms]);
 
   const currentForm = useMemo(() => {
     if (!currentFormId) return null;
