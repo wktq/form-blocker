@@ -98,7 +98,7 @@ interface FormContext {
   lastDetection?: DetectionSnapshot;
 }
 
-const FORM_BLOCKER_VERSION = '2024-12-05-discovery-loop';
+const FORM_BLOCKER_VERSION = '2024-12-05-fixed-base';
 const DEFAULT_API_BASE = 'https://form-blocker.vercel.app';
 
 const DEFAULT_SALES_KEYWORDS = ['営業', 'セールス', '提案', '御社', '貴社', '販売', '広告', '代理店'];
@@ -179,11 +179,7 @@ function getScriptOrigin(): string | null {
 
 function resolveEvaluateUrl(options: FormBlockerInitOptions): string {
   const optionBase = options.apiBaseUrl?.trim();
-  const scriptOrigin = getScriptOrigin();
-  const baseUrl =
-    optionBase && optionBase.length
-      ? optionBase
-      : scriptOrigin || DEFAULT_API_BASE;
+  const baseUrl = optionBase && optionBase.length ? optionBase : DEFAULT_API_BASE;
   const trimmedBase = baseUrl.replace(/\/+$/, '');
   const evaluatePath = (options.evaluatePath || '/api/v1/evaluate').trim() || '/api/v1/evaluate';
   if (/^https?:\/\//i.test(evaluatePath)) {
@@ -690,6 +686,10 @@ class FormBlockerCore {
     if (!this.config) {
       return;
     }
+
+    console.info(
+      `[FormBlocker ${FORM_BLOCKER_VERSION}] Scanning forms (selector: "${this.config.selector}")`
+    );
 
     // Clean up contexts for forms that were removed from the DOM
     this.contexts.forEach((context, form) => {
