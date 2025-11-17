@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FormBlocker Modal Form Test</title>
+    <link rel="stylesheet" href="../test-site/styles.css" />
+    <style>
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.7);
+        display: grid;
+        place-items: center;
+        z-index: 9000;
+      }
+      .modal-card {
+        background: #0f172a;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 16px;
+        padding: 24px;
+        width: min(520px, calc(100% - 32px));
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45);
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .ghost-btn {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: transparent;
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: #e2e8f0;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <section class="panel">
+        <h1>モーダル内フォーム検証</h1>
+        <p class="description">
+          ボタンを押してモーダルを開くと、そのタイミングでフォームが DOM に追加されます。MutationObserver /
+          ポーリングで新規フォームがアタッチされるか確認できます。
+        </p>
+
+        <div class="actions">
+          <button id="open-modal" class="apply-btn">モーダルを開く</button>
+          <button id="fill-sales" class="ghost-btn">営業文面を入力</button>
+          <button id="fill-clean" class="ghost-btn">通常文面を入力</button>
+        </div>
+
+        <p class="config-hint" id="config-hint">
+          モックAPIを有効化しています。ログはページ下部に表示されます。
+        </p>
+
+        <div class="status-panel" style="margin-top: 18px;">
+          <div class="status-header">
+            <span class="status-label">Last decision</span>
+            <span id="status-badge" class="status-badge" data-state="idle">IDLE</span>
+          </div>
+          <pre id="status-detail" class="status-detail">待機中...</pre>
+        </div>
+      </section>
+    </main>
+
+    <script src="../test-site/mock-api.js"></script>
+    <script src="../public/embed/form-blocker.min.js"></script>
+    <script>
+      (function () {
+        const badge = document.getElementById('status-badge');
+        const detail = document.getElementById('status-detail');
+        const fillSales = document.getElementById('fill-sales');
+        const fillClean = document.getElementById('fill-clean');
+        const openModalBtn = document.getElementById('open-modal');
+
+        const templates = {
+          sales: {
+            name: '営業 太郎',
+            company: 'セールスマン合同会社',
+            email: 'sales@example.com',
+            message:
+              '今すぐ御社に特別キャンペーンをご案内します。https://calendly.com/sales-demo で商談設定をお願いします。',
+          },
+          clean: {
+            name: '山田 太郎',
+            company: 'サンプル株式会社',
+            email: 'taro@example.com',
+            message: '資料請求について教えてください。',
+          },
+        };
+
+        function logDecision(state, payload) {
+          badge.dataset.state = state.toLowerCase();
+          badge.textContent = state.toUpperCase();
+          detail.textContent = JSON.stringify(payload, null, 2);
+        }
+
+        function ensureMock() {
+          window.FormBlockerMockApi?.enable?.();
+        }
+
+        function createModal() {
+          if (document.getElementById('fb-modal-form-overlay')) {
+            return;
+          }
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay';
+          overlay.id = 'fb-modal-form-overlay';
+
+          const card = document.createElement('div');
+          card.className = 'modal-card';
+          card.innerHTML = `
+            <h2 style="margin-top:0">お問い合わせ（モーダル）</h2>
+            <form class="fb-modal-form">
+              <label>お名前<input name="name" /></label>
+              <label>会社名<input name="company" /></label>
+              <label>メールアドレス<input name="email" type="email" /></label>
+              <label>お問い合わせ内容<textarea name="message" rows="5"></textarea></label>
+              <div style="margin-top:12px; display:flex; gap:12px;">
+                <button type="submit" class="apply-btn" style="flex:1">送信する</button>
+                <button type="button" class="ghost-btn" id="close-modal-btn">閉じる</button>
+              </div>
+            </form>
+          `;
+          overlay.appendChild(card);
+          document.body.appendChild(overlay);
+
+          card.querySelector('#close-modal-btn')?.addEventListener('click', () => {
+            overlay.remove();
+          });
+        }
+
+        function fill(templateKey) {
+          const form = document.querySelector('.fb-modal-form');
+          if (!form) return;
+          const template = templates[templateKey];
+          if (!template) return;
+          Object.entries(template).forEach(([key, value]) => {
+            const el = form.elements.namedItem(key);
+            if (el) el.value = value;
+          });
+        }
+
+        function initFormBlocker() {
+          FormBlocker.init({
+            apiKey: 'fb_test_site',
+            apiBaseUrl: window.location.origin,
+            selector: '.fb-modal-form',
+            previewMode: true,
+            debug: true,
+            observeMutations: true,
+            discoveryIntervalMs: 1000,
+            discoveryTimeoutMs: 30000,
+            onAllow: (r) => logDecision('allow', r),
+            onHold: (r) => logDecision('hold', r),
+            onBlock: (r) => logDecision('block', r),
+            onChallenge: (r, allow) => {
+              logDecision('challenge', r);
+              if (confirm('チャレンジ判定です。送信を続けますか？')) allow();
+            },
+            onError: (e) => logDecision('error', e),
+          });
+        }
+
+        ensureMock();
+        initFormBlocker();
+
+        openModalBtn.addEventListener('click', () => {
+          createModal();
+        });
+        fillSales.addEventListener('click', () => fill('sales'));
+        fillClean.addEventListener('click', () => fill('clean'));
+      })();
+    </script>
+  </body>
+</html>

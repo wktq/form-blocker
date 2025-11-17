@@ -53,6 +53,8 @@ export interface FormBlockerInitOptions {
     blockedDomains?: string[];
   };
   observeMutations?: boolean;
+  discoveryIntervalMs?: number;
+  discoveryTimeoutMs?: number;
   onAllow?: (result: EvaluateSuccessResponse) => void;
   onBlock?: (result: EvaluateSuccessResponse) => void;
   onChallenge?: (result: EvaluateSuccessResponse, allow: () => void) => void;
@@ -71,6 +73,8 @@ interface InternalConfig {
   bannedKeywords: string[];
   blockedDomains: string[];
   observeMutations: boolean;
+  discoveryIntervalMs: number;
+  discoveryTimeoutMs: number | null;
   onAllow?: FormBlockerInitOptions['onAllow'];
   onBlock?: FormBlockerInitOptions['onBlock'];
   onChallenge?: FormBlockerInitOptions['onChallenge'];
@@ -94,7 +98,8 @@ interface FormContext {
   lastDetection?: DetectionSnapshot;
 }
 
-const FORM_BLOCKER_VERSION = '2024-11-28-api-base';
+const FORM_BLOCKER_VERSION = '2024-12-05-discovery-loop';
+const DEFAULT_API_BASE = 'https://form-blocker.vercel.app';
 
 const DEFAULT_SALES_KEYWORDS = ['営業', 'セールス', '提案', '御社', '貴社', '販売', '広告', '代理店'];
 const DEFAULT_BANNED_KEYWORDS = ['無料', '限定', '販売促進', '広告代理店'];
@@ -178,7 +183,7 @@ function resolveEvaluateUrl(options: FormBlockerInitOptions): string {
   const baseUrl =
     optionBase && optionBase.length
       ? optionBase
-      : scriptOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
+      : scriptOrigin || DEFAULT_API_BASE;
   const trimmedBase = baseUrl.replace(/\/+$/, '');
   const evaluatePath = (options.evaluatePath || '/api/v1/evaluate').trim() || '/api/v1/evaluate';
   if (/^https?:\/\//i.test(evaluatePath)) {
@@ -597,6 +602,9 @@ class FormBlockerCore {
   private contexts = new Map<HTMLFormElement, FormContext>();
   private mutationObserver: MutationObserver | null = null;
   private pendingAttachScan = false;
+  private discoveryInterval: number | null = null;
+  private discoveryTimeoutTimer: number | null = null;
+  private lastFoundFormsCount = -1;
 
   init(options: FormBlockerInitOptions): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -628,6 +636,14 @@ class FormBlockerCore {
         ? options.debugRules.blockedDomains.map(normalizeDomain)
         : [],
       observeMutations: options.observeMutations !== false,
+      discoveryIntervalMs:
+        typeof options.discoveryIntervalMs === 'number' && options.discoveryIntervalMs > 0
+          ? options.discoveryIntervalMs
+          : 1500,
+      discoveryTimeoutMs:
+        typeof options.discoveryTimeoutMs === 'number' && options.discoveryTimeoutMs > 0
+          ? options.discoveryTimeoutMs
+          : 20000,
       onAllow: options.onAllow,
       onBlock: options.onBlock,
       onChallenge: options.onChallenge,
@@ -642,6 +658,7 @@ class FormBlockerCore {
     );
     this.attachToForms();
     this.startMutationObserver();
+    this.startDiscoveryLoop();
   }
 
   refresh(): void {
@@ -654,6 +671,7 @@ class FormBlockerCore {
 
   destroy(): void {
     this.stopMutationObserver();
+    this.stopDiscoveryLoop();
     this.contexts.forEach((context, form) => {
       form.removeAttribute('data-fb-attached');
       form.removeEventListener('submit', context.submitHandler, true);
@@ -665,6 +683,7 @@ class FormBlockerCore {
       });
     });
     this.contexts.clear();
+    this.lastFoundFormsCount = -1;
   }
 
   private attachToForms(): void {
@@ -672,18 +691,37 @@ class FormBlockerCore {
       return;
     }
 
+    // Clean up contexts for forms that were removed from the DOM
+    this.contexts.forEach((context, form) => {
+      if (!document.body.contains(form)) {
+        form.removeEventListener('submit', context.submitHandler, true);
+        context.pasteHandlers.forEach(({ element, handler }) => {
+          element.removeEventListener('paste', handler);
+        });
+        context.inputHandlers.forEach(({ element, handler }) => {
+          element.removeEventListener('input', handler);
+        });
+        this.contexts.delete(form);
+      }
+    });
+
     const forms = document.querySelectorAll<HTMLFormElement>(this.config.selector);
     this.log('Searching forms with selector', {
       selector: this.config.selector,
       found: forms.length,
     });
     if (forms.length === 0) {
-      console.warn(`[FormBlocker ${FORM_BLOCKER_VERSION}] No forms matched selector ${this.config.selector}`);
-    } else {
+      if (this.lastFoundFormsCount !== 0) {
+        console.warn(
+          `[FormBlocker ${FORM_BLOCKER_VERSION}] No forms matched selector ${this.config.selector}`
+        );
+      }
+    } else if (forms.length !== this.lastFoundFormsCount) {
       console.info(
         `[FormBlocker ${FORM_BLOCKER_VERSION}] Found ${forms.length} form(s) for selector "${this.config.selector}"`
       );
     }
+    this.lastFoundFormsCount = forms.length;
     forms.forEach((form) => {
       if (this.contexts.has(form)) {
         return;
@@ -727,6 +765,41 @@ class FormBlockerCore {
       this.mutationObserver = null;
     }
     this.pendingAttachScan = false;
+  }
+
+  private startDiscoveryLoop(): void {
+    if (!this.config) return;
+    const interval = this.config.discoveryIntervalMs;
+    if (!(interval > 0)) {
+      this.log('Discovery loop disabled (interval <= 0)');
+      return;
+    }
+    this.stopDiscoveryLoop();
+    const runScan = () => this.attachToForms();
+    this.discoveryInterval = window.setInterval(runScan, interval);
+    const timeout = this.config.discoveryTimeoutMs;
+    if (timeout && timeout > 0) {
+      this.discoveryTimeoutTimer = window.setTimeout(() => {
+        this.stopDiscoveryLoop();
+        this.log('Discovery loop stopped after timeout');
+      }, timeout);
+    }
+    console.info(
+      `[FormBlocker ${FORM_BLOCKER_VERSION}] Discovery loop started (interval: ${interval}ms${
+        timeout && timeout > 0 ? `, timeout: ${timeout}ms` : ''
+      })`
+    );
+  }
+
+  private stopDiscoveryLoop(): void {
+    if (this.discoveryInterval) {
+      window.clearInterval(this.discoveryInterval);
+      this.discoveryInterval = null;
+    }
+    if (this.discoveryTimeoutTimer) {
+      window.clearTimeout(this.discoveryTimeoutTimer);
+      this.discoveryTimeoutTimer = null;
+    }
   }
 
   private scheduleAttachScan(): void {
