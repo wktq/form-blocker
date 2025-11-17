@@ -967,7 +967,7 @@ class FormBlockerCore {
 
 const core = new FormBlockerCore();
 
-export const FormBlocker = {
+const FormBlocker = {
   init(options: FormBlockerInitOptions): void {
     core.init(options);
   },

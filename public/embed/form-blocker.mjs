@@ -585,7 +585,6 @@ if (typeof window < "u") {
   });
 }
 export {
-  y as FormBlocker,
   y as default
 };
 //# sourceMappingURL=form-blocker.mjs.map

@@ -19,7 +19,8 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        exports: 'named',
+        // Default export only to avoid wrapping the IIFE in a module object that hides init().
+        exports: 'default',
       },
     },
   },
