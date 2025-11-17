@@ -707,6 +707,32 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
+      <section id="embed">
+        <Card>
+          <CardHeader>
+            <CardTitle>埋め込みコード</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-gray-600">
+              サイトに以下のコードを設置すると、このフォームの監視を開始できます。
+            </p>
+            <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto">
+{embedSnippet}
+            </pre>
+            <div className="flex flex-col gap-1">
+              <Checkbox
+                label="動的なフォーム"
+                checked={dynamicForm}
+                onChange={(e) => setDynamicForm(e.target.checked)}
+              />
+              <p className="text-xs text-gray-500">
+                SPA やフォームが動的に追加されるページの場合にオンにすると、`observeMutations` が有効なコードが表示されます。
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
       {config && (
         <div className="alert alert-info">
           <span>
@@ -1006,35 +1032,6 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
                 ) : (
                   <p className="text-xs text-gray-500">ブロック対象ドメインは設定されていません。</p>
                 )}
-              </CardContent>
-            </Card>
-          </section>
-
-          <section id="embed">
-            <Card>
-              <CardHeader>
-                <CardTitle>埋め込みコード</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 text-sm">
-                <p className="text-gray-600">
-                  サイトに以下のコードを設置すると、このフォームの監視を開始できます。
-                </p>
-                <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto">
-{embedSnippet}
-                </pre>
-                <div className="flex flex-col gap-1">
-                  <Checkbox
-                    label="動的なフォーム"
-                    checked={dynamicForm}
-                    onChange={(e) => setDynamicForm(e.target.checked)}
-                  />
-                  <p className="text-xs text-gray-500">
-                    SPA やフォームが動的に追加されるページの場合にオンにすると、`observeMutations` が有効なコードが表示されます。
-                  </p>
-                </div>
-                <p className="text-xs text-gray-500">
-                  送信結果や履歴は Supabase の設定と `/api/v1/evaluate` を通じて保存されます。
-                </p>
               </CardContent>
             </Card>
           </section>
