@@ -94,7 +94,7 @@ interface FormContext {
   lastDetection?: DetectionSnapshot;
 }
 
-const FORM_BLOCKER_VERSION = '2024-11-07-block-modal';
+const FORM_BLOCKER_VERSION = '2024-11-28-api-base';
 
 const DEFAULT_SALES_KEYWORDS = ['営業', 'セールス', '提案', '御社', '貴社', '販売', '広告', '代理店'];
 const DEFAULT_BANNED_KEYWORDS = ['無料', '限定', '販売促進', '広告代理店'];
@@ -144,10 +144,41 @@ function collectEmailDomains(formData: Record<string, unknown>): string[] {
   return Array.from(domains);
 }
 
+function getScriptOrigin(): string | null {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const currentScript = document.currentScript as HTMLScriptElement | null;
+  const scripts = Array.from(document.querySelectorAll<HTMLScriptElement>('script'));
+  const scriptEl =
+    currentScript ||
+    scripts.find((script) => /form-blocker(\.min)?\.(js|mjs)$/.test(script.src) || script.dataset.apiBaseUrl);
+
+  const explicitBase = scriptEl?.dataset.apiBaseUrl?.trim();
+  const scriptSrc = scriptEl?.src;
+
+  try {
+    if (explicitBase) {
+      return new URL(explicitBase).origin;
+    }
+    if (scriptSrc) {
+      return new URL(scriptSrc).origin;
+    }
+  } catch {
+    // ignore parse errors
+  }
+
+  return null;
+}
+
 function resolveEvaluateUrl(options: FormBlockerInitOptions): string {
+  const optionBase = options.apiBaseUrl?.trim();
+  const scriptOrigin = getScriptOrigin();
   const baseUrl =
-    (options.apiBaseUrl && options.apiBaseUrl.trim()) ||
-    (typeof window !== 'undefined' ? window.location.origin : '');
+    optionBase && optionBase.length
+      ? optionBase
+      : scriptOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
   const trimmedBase = baseUrl.replace(/\/+$/, '');
   const evaluatePath = (options.evaluatePath || '/api/v1/evaluate').trim() || '/api/v1/evaluate';
   if (/^https?:\/\//i.test(evaluatePath)) {
