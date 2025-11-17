@@ -1,4 +1,4 @@
-const g = "2024-11-07-block-modal", C = ["営業", "セールス", "提案", "御社", "貴社", "販売", "広告", "代理店"], D = ["無料", "限定", "販売促進", "広告代理店"], T = [
+const f = "2024-11-07-block-modal", D = ["営業", "セールス", "提案", "御社", "貴社", "販売", "広告", "代理店"], C = ["無料", "限定", "販売促進", "広告代理店"], O = [
   "calendly.com",
   "youcanbook.me",
   "scheduleonce.com",
@@ -9,13 +9,13 @@ const g = "2024-11-07-block-modal", C = ["営業", "セールス", "提案", "�
   "tidycal.com",
   "cal.com"
 ];
-function L(o) {
+function S(o) {
   return o.trim().toLowerCase();
 }
-function S(o, e) {
+function A(o, e) {
   return o === e || o.endsWith(`.${e}`);
 }
-function A(o) {
+function L(o) {
   var e;
   try {
     return new URL(o).hostname.toLowerCase();
@@ -24,21 +24,21 @@ function A(o) {
     return ((e = t == null ? void 0 : t[1]) == null ? void 0 : e.toLowerCase()) ?? null;
   }
 }
-function U(o) {
+function $(o) {
   const e = /* @__PURE__ */ new Set(), t = /[\w.+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
-  return Object.values(o).forEach((i) => {
-    if (typeof i != "string")
+  return Object.values(o).forEach((n) => {
+    if (typeof n != "string")
       return;
-    const n = i.matchAll(t);
-    for (const a of n)
-      a[1] && e.add(a[1].toLowerCase());
+    const i = n.matchAll(t);
+    for (const s of i)
+      s[1] && e.add(s[1].toLowerCase());
   }), Array.from(e);
 }
-function K(o) {
-  const t = (o.apiBaseUrl && o.apiBaseUrl.trim() || (typeof window < "u" ? window.location.origin : "")).replace(/\/+$/, ""), i = (o.evaluatePath || "/api/v1/evaluate").trim() || "/api/v1/evaluate";
-  return /^https?:\/\//i.test(i) ? i : `${t}${i.startsWith("/") ? i : `/${i}`}`;
+function N(o) {
+  const t = (o.apiBaseUrl && o.apiBaseUrl.trim() || (typeof window < "u" ? window.location.origin : "")).replace(/\/+$/, ""), n = (o.evaluatePath || "/api/v1/evaluate").trim() || "/api/v1/evaluate";
+  return /^https?:\/\//i.test(n) ? n : `${t}${n.startsWith("/") ? n : `/${n}`}`;
 }
-function I() {
+function U() {
   const o = document.createElement("div");
   o.className = "fb-loading", o.style.cssText = [
     "position:absolute",
@@ -66,9 +66,9 @@ function I() {
   }
   return o;
 }
-let B = !1;
-function $() {
-  if (B || typeof document > "u")
+let F = !1;
+function T() {
+  if (F || typeof document > "u")
     return;
   const o = document.createElement("style");
   o.id = "fb-modal-styles", o.textContent = `
@@ -229,9 +229,9 @@ function $() {
     background: rgba(51, 65, 85, 0.6);
   }
 }
-`, document.head.appendChild(o), B = !0;
+`, document.head.appendChild(o), F = !0;
 }
-function z(o) {
+function I(o) {
   switch (o) {
     case "error":
       return "!";
@@ -241,33 +241,33 @@ function z(o) {
       return "ℹ︎";
   }
 }
-function R(o) {
+function K(o) {
   if (typeof document > "u")
     return;
-  $();
+  T();
   const e = document.createElement("div");
   e.className = "fb-modal-overlay";
   const t = document.createElement("div");
   t.className = `fb-modal-window fb-${o.type}`, t.setAttribute("role", "dialog"), t.setAttribute("aria-modal", "true"), t.setAttribute("aria-label", o.title);
-  const i = document.createElement("div");
-  i.className = `fb-modal-hero fb-${o.type}`, i.setAttribute("aria-hidden", "true"), i.textContent = z(o.type);
-  const n = () => {
+  const n = document.createElement("div");
+  n.className = `fb-modal-hero fb-${o.type}`, n.setAttribute("aria-hidden", "true"), n.textContent = I(o.type);
+  const i = () => {
     e.classList.add("fb-modal-hide"), window.setTimeout(() => {
       e.parentElement && e.parentElement.removeChild(e);
     }, 180);
-  }, a = document.createElement("button");
-  a.className = "fb-modal-close", a.type = "button", a.setAttribute("aria-label", "閉じる"), a.innerHTML = "&times;", a.addEventListener("click", n);
-  const s = document.createElement("h2");
-  s.className = "fb-modal-title", s.textContent = o.title;
-  const d = o.subtitle ? (() => {
+  }, s = document.createElement("button");
+  s.className = "fb-modal-close", s.type = "button", s.setAttribute("aria-label", "閉じる"), s.innerHTML = "&times;", s.addEventListener("click", i);
+  const a = document.createElement("h2");
+  a.className = "fb-modal-title", a.textContent = o.title;
+  const c = o.subtitle ? (() => {
     const r = document.createElement("p");
     return r.className = "fb-modal-subtitle", r.textContent = o.subtitle, r;
-  })() : null, c = document.createElement("p");
-  if (c.className = "fb-modal-message", c.textContent = o.message, t.appendChild(a), t.appendChild(i), t.appendChild(s), d && t.appendChild(d), t.appendChild(c), o.reasons && o.reasons.length > 0) {
+  })() : null, d = document.createElement("p");
+  if (d.className = "fb-modal-message", d.textContent = o.message, t.appendChild(s), t.appendChild(n), t.appendChild(a), c && t.appendChild(c), t.appendChild(d), o.reasons && o.reasons.length > 0) {
     const r = document.createElement("ul");
-    r.className = "fb-reason-list", o.reasons.forEach((u) => {
-      const h = document.createElement("li");
-      h.textContent = u, r.appendChild(h);
+    r.className = "fb-reason-list", o.reasons.forEach((b) => {
+      const g = document.createElement("li");
+      g.textContent = b, r.appendChild(g);
     }), t.appendChild(r);
   }
   if (o.note) {
@@ -282,18 +282,18 @@ function R(o) {
   if (l.className = "fb-modal-actions", o.primaryAction && o.primaryActionLabel) {
     const r = document.createElement("button");
     r.className = "fb-modal-btn fb-primary", r.type = "button", r.textContent = o.primaryActionLabel, r.addEventListener("click", () => {
-      var u;
-      (u = o.primaryAction) == null || u.call(o), n();
+      var b;
+      (b = o.primaryAction) == null || b.call(o), i();
     }), l.appendChild(r);
   }
-  const m = document.createElement("button");
-  m.className = "fb-modal-btn fb-secondary", m.type = "button", m.textContent = "閉じる", m.addEventListener("click", n), l.appendChild(m), t.appendChild(l), e.appendChild(t), e.addEventListener("click", (r) => {
-    r.target === e && n();
+  const u = document.createElement("button");
+  u.className = "fb-modal-btn fb-secondary", u.type = "button", u.textContent = "閉じる", u.addEventListener("click", i), l.appendChild(u), t.appendChild(l), e.appendChild(t), e.addEventListener("click", (r) => {
+    r.target === e && i();
   }), document.body.appendChild(e);
 }
 function _(o) {
   const e = o.message || "営業目的または不正な送信と判定されたため、送信をブロックしました。";
-  R({
+  K({
     title: "送信がブロックされました",
     subtitle: "申し訳ありませんが、この送信内容は営業目的またはスパムの可能性が高いため送信できませんでした。",
     message: e,
@@ -303,7 +303,7 @@ function _(o) {
     note: "心当たりがない場合は、入力内容を見直すか別の連絡手段でお問い合わせください。再送時は URL や営業キーワードが含まれていないかをご確認ください。"
   });
 }
-function F(o, e) {
+function B(o, e) {
   const t = document.createElement("div");
   t.className = `fb-message fb-${e}`, t.textContent = o, t.style.cssText = [
     "position:fixed",
@@ -323,12 +323,12 @@ function F(o, e) {
     }, 300);
   }, 3e3);
 }
-class j {
+class R {
   constructor() {
-    this.config = null, this.contexts = /* @__PURE__ */ new Map();
+    this.config = null, this.contexts = /* @__PURE__ */ new Map(), this.mutationObserver = null, this.pendingAttachScan = !1;
   }
   init(e) {
-    var i, n, a, s, d, c;
+    var n, i, s, a, c, d;
     if (typeof window > "u" || typeof document > "u")
       return;
     if (!e || !e.apiKey) {
@@ -336,23 +336,26 @@ class j {
       return;
     }
     this.destroy();
-    const t = (l) => l.map((m) => m.toLowerCase());
+    const t = (l) => l.map((u) => u.toLowerCase());
     this.config = {
       apiKey: e.apiKey,
-      evaluateUrl: K(e),
+      evaluateUrl: N(e),
       selector: e.selector || "form",
       debug: !!e.debug,
       previewMode: !!e.previewMode,
-      salesKeywords: (n = (i = e.debugRules) == null ? void 0 : i.salesKeywords) != null && n.length ? t(e.debugRules.salesKeywords) : t(C),
-      bannedKeywords: (s = (a = e.debugRules) == null ? void 0 : a.bannedKeywords) != null && s.length ? t(e.debugRules.bannedKeywords) : t(D),
-      blockedDomains: (c = (d = e.debugRules) == null ? void 0 : d.blockedDomains) != null && c.length ? e.debugRules.blockedDomains.map(L) : [],
+      salesKeywords: (i = (n = e.debugRules) == null ? void 0 : n.salesKeywords) != null && i.length ? t(e.debugRules.salesKeywords) : t(D),
+      bannedKeywords: (a = (s = e.debugRules) == null ? void 0 : s.bannedKeywords) != null && a.length ? t(e.debugRules.bannedKeywords) : t(C),
+      blockedDomains: (d = (c = e.debugRules) == null ? void 0 : c.blockedDomains) != null && d.length ? e.debugRules.blockedDomains.map(S) : [],
+      observeMutations: e.observeMutations !== !1,
       onAllow: e.onAllow,
       onBlock: e.onBlock,
       onChallenge: e.onChallenge,
       onHold: e.onHold,
       onError: e.onError,
       onDetectionUpdate: e.onDetectionUpdate
-    }, this.log("Initialized with config", this.config), this.attachToForms();
+    }, this.log("Initialized with config", this.config), console.info(
+      `[FormBlocker ${f}] Initialized (selector: "${this.config.selector}", evaluateUrl: "${this.config.evaluateUrl}", previewMode: ${this.config.previewMode})`
+    ), this.attachToForms(), this.startMutationObserver();
   }
   refresh() {
     if (!this.config) {
@@ -362,11 +365,11 @@ class j {
     this.attachToForms();
   }
   destroy() {
-    this.contexts.forEach((e, t) => {
-      t.removeAttribute("data-fb-attached"), t.removeEventListener("submit", e.submitHandler, !0), e.pasteHandlers.forEach(({ element: i, handler: n }) => {
-        i.removeEventListener("paste", n);
-      }), e.inputHandlers.forEach(({ element: i, handler: n }) => {
-        i.removeEventListener("input", n);
+    this.stopMutationObserver(), this.contexts.forEach((e, t) => {
+      t.removeAttribute("data-fb-attached"), t.removeEventListener("submit", e.submitHandler, !0), e.pasteHandlers.forEach(({ element: n, handler: i }) => {
+        n.removeEventListener("paste", i);
+      }), e.inputHandlers.forEach(({ element: n, handler: i }) => {
+        n.removeEventListener("input", i);
       });
     }), this.contexts.clear();
   }
@@ -377,8 +380,39 @@ class j {
     this.log("Searching forms with selector", {
       selector: this.config.selector,
       found: e.length
-    }), e.length === 0 && console.warn(`[FormBlocker ${g}] No forms matched selector ${this.config.selector}`), e.forEach((t) => {
+    }), e.length === 0 ? console.warn(`[FormBlocker ${f}] No forms matched selector ${this.config.selector}`) : console.info(
+      `[FormBlocker ${f}] Found ${e.length} form(s) for selector "${this.config.selector}"`
+    ), e.forEach((t) => {
       this.contexts.has(t) || this.attachToForm(t);
+    });
+  }
+  startMutationObserver() {
+    var e;
+    if (!((e = this.config) != null && e.observeMutations)) {
+      this.log("Mutation observer disabled via config");
+      return;
+    }
+    if (typeof MutationObserver > "u" || typeof document > "u") {
+      this.log("MutationObserver not available in this environment");
+      return;
+    }
+    this.mutationObserver && this.mutationObserver.disconnect(), this.mutationObserver = new MutationObserver((t) => {
+      let n = !1;
+      for (const i of t)
+        if (i.type === "childList" && i.addedNodes.length > 0) {
+          n = !0;
+          break;
+        }
+      n && this.scheduleAttachScan();
+    }), this.mutationObserver.observe(document.body, { childList: !0, subtree: !0 }), console.info(`[FormBlocker ${f}] Watching DOM for newly added forms`);
+  }
+  stopMutationObserver() {
+    this.mutationObserver && (this.mutationObserver.disconnect(), this.mutationObserver = null), this.pendingAttachScan = !1;
+  }
+  scheduleAttachScan() {
+    if (this.pendingAttachScan) return;
+    this.pendingAttachScan = !0, (typeof window < "u" && window.requestAnimationFrame ? window.requestAnimationFrame : (t) => setTimeout(t, 16))(() => {
+      this.pendingAttachScan = !1, this.attachToForms();
     });
   }
   attachToForm(e) {
@@ -388,94 +422,94 @@ class j {
       pasteDetected: !1,
       timeToSubmit: null,
       pageLoadTime: Date.now()
-    }, i = (d) => {
-      this.handleSubmit(d, e, t).catch((c) => {
-        this.log("Submission handling failed", c);
+    }, n = (c) => {
+      this.handleSubmit(c, e, t).catch((d) => {
+        this.log("Submission handling failed", d);
       });
-    }, n = [], a = [], s = e.querySelectorAll("input, textarea");
-    s.forEach((d) => {
-      const c = () => {
+    }, i = [], s = [], a = e.querySelectorAll("input, textarea");
+    a.forEach((c) => {
+      const d = () => {
         t.pasteDetected = !0, this.log("Paste detected for form", e), this.emitDetectionUpdate(e, t);
       };
-      d.addEventListener("paste", c), n.push({ element: d, handler: c });
-    }), s.forEach((d) => {
-      const c = () => {
+      c.addEventListener("paste", d), i.push({ element: c, handler: d });
+    }), a.forEach((c) => {
+      const d = () => {
         this.emitDetectionUpdate(e, t);
       };
-      d.addEventListener("input", c), a.push({ element: d, handler: c });
-    }), e.addEventListener("submit", i, !0), e.setAttribute("data-fb-attached", "true"), this.emitDetectionUpdate(e, t), this.contexts.set(e, {
+      c.addEventListener("input", d), s.push({ element: c, handler: d });
+    }), e.addEventListener("submit", n, !0), e.setAttribute("data-fb-attached", "true"), this.emitDetectionUpdate(e, t), this.contexts.set(e, {
       originalSubmit: e.onsubmit,
-      submitHandler: i,
-      pasteHandlers: n,
-      inputHandlers: a,
+      submitHandler: n,
+      pasteHandlers: i,
+      inputHandlers: s,
       behavioral: t
     }), this.log("Attached to form", e);
   }
-  async handleSubmit(e, t, i) {
-    var n, a, s, d, c;
+  async handleSubmit(e, t, n) {
+    var i, s, a, c, d;
     if (this.config) {
-      e.preventDefault(), e.stopPropagation(), this.log("Intercepted submit", { selector: this.config.selector }), i.timeToSubmit = (Date.now() - i.pageLoadTime) / 1e3, this.showLoading(t), this.emitDetectionUpdate(t, i);
+      e.preventDefault(), e.stopPropagation(), this.log("Intercepted submit", { selector: this.config.selector }), n.timeToSubmit = (Date.now() - n.pageLoadTime) / 1e3, this.showLoading(t), this.emitDetectionUpdate(t, n);
       try {
-        const l = this.buildRequestBody(t, i);
+        const l = this.buildRequestBody(t, n);
         this.log("Submitting payload", l);
-        const m = await fetch(this.config.evaluateUrl, {
+        const u = await fetch(this.config.evaluateUrl, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify(l)
         });
-        if (!m.ok)
-          throw new Error(`API request failed with status ${m.status}`);
-        const r = await m.json();
+        if (!u.ok)
+          throw new Error(`API request failed with status ${u.status}`);
+        const r = await u.json();
         if (this.log("Received response", r), !r.success) {
-          const u = ((n = r.error) == null ? void 0 : n.message) || "エラーが発生しました。後ほど再度お試しください。";
-          F(u, "error"), (s = (a = this.config).onError) == null || s.call(a, r), this.hideLoading(t);
+          const b = ((i = r.error) == null ? void 0 : i.message) || "エラーが発生しました。後ほど再度お試しください。";
+          B(b, "error"), (a = (s = this.config).onError) == null || a.call(s, r), this.hideLoading(t);
           return;
         }
         this.handleDecision(r, t);
       } catch (l) {
-        console.error("[FormBlocker] API error", l), (c = (d = this.config).onError) == null || c.call(d, l), this.hideLoading(t), this.allowSubmission(t);
+        console.error("[FormBlocker] API error", l), (d = (c = this.config).onError) == null || d.call(c, l), this.hideLoading(t), this.allowSubmission(t);
       }
     }
   }
   buildRequestBody(e, t) {
-    var a;
-    const i = {
+    var s;
+    const n = {
       url: typeof window < "u" ? window.location.href : "",
       user_agent: typeof navigator < "u" ? navigator.userAgent : "",
       timestamp: Date.now()
-    }, n = {
+    }, i = {
       paste_detected: t.pasteDetected
     };
-    return typeof t.timeToSubmit == "number" && !Number.isNaN(t.timeToSubmit) && (n.time_to_submit = t.timeToSubmit), {
-      api_key: (a = this.config) == null ? void 0 : a.apiKey,
+    return typeof t.timeToSubmit == "number" && !Number.isNaN(t.timeToSubmit) && (i.time_to_submit = t.timeToSubmit), {
+      api_key: (s = this.config) == null ? void 0 : s.apiKey,
       form_data: this.extractFormData(e),
-      metadata: i,
-      behavioral_data: n
+      metadata: n,
+      behavioral_data: i
     };
   }
   extractFormData(e) {
     const t = {};
-    return Array.from(e.elements).forEach((n) => {
-      if (!n.name)
+    return Array.from(e.elements).forEach((i) => {
+      if (!i.name)
         return;
-      const a = n.type;
-      if (a === "checkbox") {
-        const s = n;
-        t[n.name] || (t[n.name] = []), s.checked && t[n.name].push(s.value);
-        return;
-      }
-      if (a === "radio") {
-        const s = n;
-        s.checked ? t[n.name] = s.value : n.name in t || (t[n.name] = null);
+      const s = i.type;
+      if (s === "checkbox") {
+        const a = i;
+        t[i.name] || (t[i.name] = []), a.checked && t[i.name].push(a.value);
         return;
       }
-      t[n.name] = n.value;
+      if (s === "radio") {
+        const a = i;
+        a.checked ? t[i.name] = a.value : i.name in t || (t[i.name] = null);
+        return;
+      }
+      t[i.name] = i.value;
     }), t;
   }
   handleDecision(e, t) {
-    var i, n, a, s, d, c;
+    var n, i, s, a, c, d;
     switch (this.log("Handling decision", {
       decision: e.decision,
       scores: e.scores,
@@ -484,123 +518,139 @@ class j {
       submissionId: e.submission_id
     }), e.decision) {
       case "allowed":
-        this.allowSubmission(t), this.hideLoading(t), (n = (i = this.config) == null ? void 0 : i.onAllow) == null || n.call(i, e);
+        this.allowSubmission(t), this.hideLoading(t), (i = (n = this.config) == null ? void 0 : n.onAllow) == null || i.call(n, e);
         break;
       case "challenged":
         this.hideLoading(t), this.handleChallenge(e, t);
         break;
       case "held":
-        this.hideLoading(t), F(e.message, "info"), (s = (a = this.config) == null ? void 0 : a.onHold) == null || s.call(a, e);
+        this.hideLoading(t), B(e.message, "info"), (a = (s = this.config) == null ? void 0 : s.onHold) == null || a.call(s, e);
         break;
       case "blocked":
-        this.hideLoading(t), _(e), (c = (d = this.config) == null ? void 0 : d.onBlock) == null || c.call(d, e);
+        this.hideLoading(t), _(e), (d = (c = this.config) == null ? void 0 : c.onBlock) == null || d.call(c, e);
         break;
       default:
         this.hideLoading(t), this.allowSubmission(t);
     }
   }
   handleChallenge(e, t) {
-    var s, d, c;
+    var a, c, d;
     this.log("Challenge presented", {
-      question: (s = e.challenge) == null ? void 0 : s.question,
+      question: (a = e.challenge) == null ? void 0 : a.question,
       submissionId: e.submission_id
     });
-    const i = () => {
-      var l, m;
-      this.allowSubmission(t), (m = (l = this.config) == null ? void 0 : l.onAllow) == null || m.call(l, e);
+    const n = () => {
+      var l, u;
+      this.allowSubmission(t), (u = (l = this.config) == null ? void 0 : l.onAllow) == null || u.call(l, e);
     };
-    if ((d = this.config) != null && d.onChallenge) {
-      this.config.onChallenge(e, i);
+    if ((c = this.config) != null && c.onChallenge) {
+      this.config.onChallenge(e, n);
       return;
     }
-    const n = ((c = e.challenge) == null ? void 0 : c.question) || "この送信は営業目的ではありませんか？送信を続けますか？";
-    window.confirm(`${n}
+    const i = ((d = e.challenge) == null ? void 0 : d.question) || "この送信は営業目的ではありませんか？送信を続けますか？";
+    window.confirm(`${i}
 
-「OK」を押すと送信されます。`) && i();
+「OK」を押すと送信されます。`) && n();
   }
   allowSubmission(e) {
-    var i;
-    if ((i = this.config) != null && i.previewMode) {
+    var n;
+    if ((n = this.config) != null && n.previewMode) {
       this.log("Preview mode enabled: submission prevented");
       return;
     }
     this.log("Allowing native submission");
     const t = this.contexts.get(e);
     if (t != null && t.originalSubmit) {
-      const n = new Event("submit", { bubbles: !0, cancelable: !0 });
-      t.originalSubmit.call(e, n);
+      const i = new Event("submit", { bubbles: !0, cancelable: !0 });
+      t.originalSubmit.call(e, i);
     } else
       e.submit();
   }
   showLoading(e) {
     if (!e.querySelector(".fb-loading")) {
-      const t = I(), i = window.getComputedStyle(e);
-      (i.position === "static" || !i.position) && (e.style.position = "relative"), e.appendChild(t);
+      const t = U(), n = window.getComputedStyle(e);
+      (n.position === "static" || !n.position) && (e.style.position = "relative"), e.appendChild(t);
     }
   }
   hideLoading(e) {
     const t = e.querySelector(".fb-loading");
     t && t.parentElement && t.parentElement.removeChild(t);
   }
+  isDebugEnabled() {
+    var s;
+    if ((s = this.config) != null && s.debug) return !0;
+    if (typeof window > "u") return !1;
+    const e = window.FormBlockerDebug === !0, t = localStorage.getItem("formblocker:debug") === "true", n = new URLSearchParams(window.location.search), i = n.get("fb_debug") === "1" || n.get("formblocker_debug") === "1";
+    return e || t || i;
+  }
   log(e, t) {
-    var n;
-    const i = typeof window < "u" && (window.FormBlockerDebug === !0 || localStorage.getItem("formblocker:debug") === "true");
-    !((n = this.config) != null && n.debug) && !i || (t !== void 0 ? console.log(`[FormBlocker ${g}] ${e}`, t) : console.log(`[FormBlocker ${g}] ${e}`));
+    this.isDebugEnabled() && (t !== void 0 ? console.log(`[FormBlocker ${f}] ${e}`, t) : console.log(`[FormBlocker ${f}] ${e}`));
   }
   emitDetectionUpdate(e, t) {
-    var s, d;
-    const i = this.contexts.get(e), n = this.extractFormData(e), a = this.analyzeDetection(n, t);
-    i && (i.lastDetection = a), this.log("Detection snapshot", a), (d = (s = this.config) == null ? void 0 : s.onDetectionUpdate) == null || d.call(s, a);
+    var a, c;
+    const n = this.contexts.get(e), i = this.extractFormData(e), s = this.analyzeDetection(i, t);
+    n && (n.lastDetection = s), this.log("Detection snapshot", s), (c = (a = this.config) == null ? void 0 : a.onDetectionUpdate) == null || c.call(a, s);
   }
   analyzeDetection(e, t) {
-    var E, k, v;
-    const n = Object.values(e).map((f) => typeof f == "string" ? f : Array.isArray(f) ? f.join(" ") : "").join(" ").toLowerCase(), a = /(https?:\/\/[^\s]+)/gi, s = n.match(a) || [], d = s.filter((f) => {
-      const p = A(f);
-      return p ? T.some((b) => S(p, b)) : !1;
-    }), c = ((E = this.config) == null ? void 0 : E.salesKeywords) || C, l = ((k = this.config) == null ? void 0 : k.bannedKeywords) || D, m = c.filter((f) => f && n.includes(f.toLowerCase())), r = l.filter((f) => f && n.includes(f.toLowerCase())), u = U(e), h = [], x = ((v = this.config) == null ? void 0 : v.blockedDomains) || [];
+    var v, k, E;
+    const i = Object.values(e).map((m) => typeof m == "string" ? m : Array.isArray(m) ? m.join(" ") : "").join(" ").toLowerCase(), s = /(https?:\/\/[^\s]+)/gi, a = i.match(s) || [], c = a.filter((m) => {
+      const p = L(m);
+      return p ? O.some((h) => A(p, h)) : !1;
+    }), d = ((v = this.config) == null ? void 0 : v.salesKeywords) || D, l = ((k = this.config) == null ? void 0 : k.bannedKeywords) || C, u = d.filter((m) => m && i.includes(m.toLowerCase())), r = l.filter((m) => m && i.includes(m.toLowerCase())), b = $(e), g = [], x = ((E = this.config) == null ? void 0 : E.blockedDomains) || [];
     if (x.length > 0) {
-      const f = Array.from(
+      const m = Array.from(
         new Set(
-          s.map((b) => A(b)).filter((b) => !!b)
+          a.map((h) => L(h)).filter((h) => !!h)
         )
       );
-      Array.from(/* @__PURE__ */ new Set([...f, ...u])).map(L).forEach((b) => {
-        x.some((N) => S(b, N)) && h.push(b);
+      Array.from(/* @__PURE__ */ new Set([...m, ...b])).map(S).forEach((h) => {
+        x.some((M) => A(h, M)) && g.push(h);
       });
     }
     return {
-      urlDetected: s.length > 0,
-      detectedUrls: s,
-      schedulingUrls: d,
-      salesKeywords: m,
+      urlDetected: a.length > 0,
+      detectedUrls: a,
+      schedulingUrls: c,
+      salesKeywords: u,
       bannedKeywords: r,
-      blockedDomains: h,
+      blockedDomains: g,
       pasteDetected: t.pasteDetected,
-      contentLength: n.length,
+      contentLength: i.length,
       updatedAt: Date.now()
     };
   }
 }
-const y = new j(), w = {
+const w = new R(), y = {
   init(o) {
-    typeof window < "u" && localStorage.getItem("formblocker:debug") === "true" && (o = { ...o, debug: !0 }), y.init(o);
+    if (typeof window < "u") {
+      const e = localStorage.getItem("formblocker:debug"), t = window.FormBlockerDebug === !0, n = new URLSearchParams(window.location.search), i = n.get("fb_debug") === "1" || n.get("formblocker_debug") === "1";
+      (e === "true" || t || i) && (o = { ...o, debug: !0 });
+    }
+    w.init(o), console.info(
+      `[FormBlocker ${f}] init called`,
+      {
+        selector: o.selector || "form",
+        debug: o.debug,
+        previewMode: o.previewMode
+      }
+    );
   },
   refresh() {
-    y.refresh();
+    w.refresh();
   },
   destroy() {
-    y.destroy();
+    w.destroy();
   }
 };
 if (typeof window < "u") {
-  console.info(`[FormBlocker ${g}] Script loaded`), window.FormBlocker = w, window.FormBlockerVersion = g;
+  console.info(`[FormBlocker ${f}] Script loaded`), window.FormBlocker = y, window.FormBlockerVersion = f;
   const o = window.FormBlockerAutoInit;
-  o && w.init(o), document.readyState === "loading" && document.addEventListener("DOMContentLoaded", () => {
+  o && y.init(o), document.readyState === "loading" && document.addEventListener("DOMContentLoaded", () => {
     const e = window.FormBlockerAutoInit;
-    e && w.init(e);
+    e && y.init(e);
   });
 }
 export {
-  w as default
+  y as default
 };
 //# sourceMappingURL=form-blocker.mjs.map

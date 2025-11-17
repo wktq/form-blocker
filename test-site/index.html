@@ -83,6 +83,14 @@
     <script src="./mock-api.js"></script>
     <script src="../public/embed/form-blocker.min.js"></script>
     <script>
+      // 確実にロードできているか早期に確認
+      if (window.FormBlocker) {
+        console.info('[Test Site] FormBlocker loaded', window.FormBlockerVersion);
+      } else {
+        console.error('[Test Site] FormBlocker failed to load. Check script path/cache.');
+      }
+    </script>
+    <script>
       (function () {
         const form = document.getElementById('demo-form');
         const badge = document.getElementById('status-badge');

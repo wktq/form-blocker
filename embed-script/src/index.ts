@@ -52,6 +52,7 @@ export interface FormBlockerInitOptions {
     bannedKeywords?: string[];
     blockedDomains?: string[];
   };
+  observeMutations?: boolean;
   onAllow?: (result: EvaluateSuccessResponse) => void;
   onBlock?: (result: EvaluateSuccessResponse) => void;
   onChallenge?: (result: EvaluateSuccessResponse, allow: () => void) => void;
@@ -69,6 +70,7 @@ interface InternalConfig {
   salesKeywords: string[];
   bannedKeywords: string[];
   blockedDomains: string[];
+  observeMutations: boolean;
   onAllow?: FormBlockerInitOptions['onAllow'];
   onBlock?: FormBlockerInitOptions['onBlock'];
   onChallenge?: FormBlockerInitOptions['onChallenge'];
@@ -562,6 +564,8 @@ function showBanner(message: string, type: 'info' | 'error'): void {
 class FormBlockerCore {
   private config: InternalConfig | null = null;
   private contexts = new Map<HTMLFormElement, FormContext>();
+  private mutationObserver: MutationObserver | null = null;
+  private pendingAttachScan = false;
 
   init(options: FormBlockerInitOptions): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
@@ -592,6 +596,7 @@ class FormBlockerCore {
       blockedDomains: options.debugRules?.blockedDomains?.length
         ? options.debugRules.blockedDomains.map(normalizeDomain)
         : [],
+      observeMutations: options.observeMutations !== false,
       onAllow: options.onAllow,
       onBlock: options.onBlock,
       onChallenge: options.onChallenge,
@@ -601,7 +606,11 @@ class FormBlockerCore {
     };
 
     this.log('Initialized with config', this.config);
+    console.info(
+      `[FormBlocker ${FORM_BLOCKER_VERSION}] Initialized (selector: "${this.config.selector}", evaluateUrl: "${this.config.evaluateUrl}", previewMode: ${this.config.previewMode})`
+    );
     this.attachToForms();
+    this.startMutationObserver();
   }
 
   refresh(): void {
@@ -613,6 +622,7 @@ class FormBlockerCore {
   }
 
   destroy(): void {
+    this.stopMutationObserver();
     this.contexts.forEach((context, form) => {
       form.removeAttribute('data-fb-attached');
       form.removeEventListener('submit', context.submitHandler, true);
@@ -638,12 +648,64 @@ class FormBlockerCore {
     });
     if (forms.length === 0) {
       console.warn(`[FormBlocker ${FORM_BLOCKER_VERSION}] No forms matched selector ${this.config.selector}`);
+    } else {
+      console.info(
+        `[FormBlocker ${FORM_BLOCKER_VERSION}] Found ${forms.length} form(s) for selector "${this.config.selector}"`
+      );
     }
     forms.forEach((form) => {
       if (this.contexts.has(form)) {
         return;
       }
       this.attachToForm(form);
+    });
+  }
+
+  private startMutationObserver(): void {
+    if (!this.config?.observeMutations) {
+      this.log('Mutation observer disabled via config');
+      return;
+    }
+    if (typeof MutationObserver === 'undefined' || typeof document === 'undefined') {
+      this.log('MutationObserver not available in this environment');
+      return;
+    }
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+    }
+    this.mutationObserver = new MutationObserver((mutations) => {
+      let shouldScan = false;
+      for (const mutation of mutations) {
+        if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+          shouldScan = true;
+          break;
+        }
+      }
+      if (shouldScan) {
+        this.scheduleAttachScan();
+      }
+    });
+    this.mutationObserver.observe(document.body, { childList: true, subtree: true });
+    console.info(`[FormBlocker ${FORM_BLOCKER_VERSION}] Watching DOM for newly added forms`);
+  }
+
+  private stopMutationObserver(): void {
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+      this.mutationObserver = null;
+    }
+    this.pendingAttachScan = false;
+  }
+
+  private scheduleAttachScan(): void {
+    if (this.pendingAttachScan) return;
+    this.pendingAttachScan = true;
+    const schedule = typeof window !== 'undefined' && window.requestAnimationFrame
+      ? window.requestAnimationFrame
+      : (cb: FrameRequestCallback) => setTimeout(cb, 16);
+    schedule(() => {
+      this.pendingAttachScan = false;
+      this.attachToForms();
     });
   }
 
@@ -906,13 +968,20 @@ class FormBlockerCore {
     }
   }
 
-  private log(message: string, payload?: unknown): void {
-    const globalDebug =
-      typeof window !== 'undefined' &&
-      ((window as { FormBlockerDebug?: boolean }).FormBlockerDebug === true ||
-        localStorage.getItem('formblocker:debug') === 'true');
+  private isDebugEnabled(): boolean {
+    if (this.config?.debug) return true;
+    if (typeof window === 'undefined') return false;
 
-    if (!this.config?.debug && !globalDebug) return;
+    const flagFromWindow = (window as { FormBlockerDebug?: boolean }).FormBlockerDebug === true;
+    const flagFromStorage = localStorage.getItem('formblocker:debug') === 'true';
+    const params = new URLSearchParams(window.location.search);
+    const flagFromQuery = params.get('fb_debug') === '1' || params.get('formblocker_debug') === '1';
+
+    return flagFromWindow || flagFromStorage || flagFromQuery;
+  }
+
+  private log(message: string, payload?: unknown): void {
+    if (!this.isDebugEnabled()) return;
     if (payload !== undefined) {
       console.log(`[FormBlocker ${FORM_BLOCKER_VERSION}] ${message}`, payload);
     } else {
@@ -995,11 +1064,25 @@ const FormBlocker = {
   init(options: FormBlockerInitOptions): void {
     if (typeof window !== 'undefined') {
       const persistentDebug = localStorage.getItem('formblocker:debug');
-      if (persistentDebug === 'true') {
+      const globalFlag = (window as { FormBlockerDebug?: boolean }).FormBlockerDebug === true;
+      const params = new URLSearchParams(window.location.search);
+      const queryDebug = params.get('fb_debug') === '1' || params.get('formblocker_debug') === '1';
+
+      if (persistentDebug === 'true' || globalFlag || queryDebug) {
         options = { ...options, debug: true };
       }
     }
     core.init(options);
+
+    // Always log one line soオペレーション側が初期化に気づける
+    console.info(
+      `[FormBlocker ${FORM_BLOCKER_VERSION}] init called`,
+      {
+        selector: options.selector || 'form',
+        debug: options.debug,
+        previewMode: options.previewMode,
+      }
+    );
   },
   refresh(): void {
     core.refresh();
