@@ -1,4 +1,4 @@
-const f = "2024-11-28-api-base", S = ["営業", "セールス", "提案", "御社", "貴社", "販売", "広告", "代理店"], D = ["無料", "限定", "販売促進", "広告代理店"], M = [
+const f = "2024-11-28-api-base", S = ["営業", "セールス", "提案", "御社", "貴社", "販売", "広告", "代理店"], D = ["無料", "限定", "販売促進", "広告代理店"], $ = [
   "calendly.com",
   "youcanbook.me",
   "scheduleonce.com",
@@ -24,7 +24,7 @@ function L(o) {
     return ((e = t == null ? void 0 : t[1]) == null ? void 0 : e.toLowerCase()) ?? null;
   }
 }
-function U(o) {
+function M(o) {
   const e = /* @__PURE__ */ new Set(), t = /[\w.+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
   return Object.values(o).forEach((i) => {
     if (typeof i != "string")
@@ -34,7 +34,7 @@ function U(o) {
       s[1] && e.add(s[1].toLowerCase());
   }), Array.from(e);
 }
-function $() {
+function U() {
   var s;
   if (typeof document > "u")
     return null;
@@ -50,7 +50,7 @@ function $() {
 }
 function N(o) {
   var a;
-  const e = (a = o.apiBaseUrl) == null ? void 0 : a.trim(), t = $(), n = (e && e.length ? e : t || (typeof window < "u" ? window.location.origin : "")).replace(/\/+$/, ""), s = (o.evaluatePath || "/api/v1/evaluate").trim() || "/api/v1/evaluate";
+  const e = (a = o.apiBaseUrl) == null ? void 0 : a.trim(), t = U(), n = (e && e.length ? e : t || (typeof window < "u" ? window.location.origin : "")).replace(/\/+$/, ""), s = (o.evaluatePath || "/api/v1/evaluate").trim() || "/api/v1/evaluate";
   return /^https?:\/\//i.test(s) ? s : `${n}${s.startsWith("/") ? s : `/${s}`}`;
 }
 function T() {
@@ -418,7 +418,7 @@ class z {
           i = !0;
           break;
         }
-      i && this.scheduleAttachScan();
+      i && (console.info(`[FormBlocker ${f}] DOM mutation detected, rescanning forms`), this.scheduleAttachScan());
     }), this.mutationObserver.observe(document.body, { childList: !0, subtree: !0 }), console.info(`[FormBlocker ${f}] Watching DOM for newly added forms`);
   }
   stopMutationObserver() {
@@ -458,7 +458,10 @@ class z {
       pasteHandlers: n,
       inputHandlers: s,
       behavioral: t
-    }), this.log("Attached to form", e);
+    }), this.log("Attached to form", e), console.info(
+      `[FormBlocker ${f}] Attached to form (selector: "${this.config.selector}")`,
+      e
+    );
   }
   async handleSubmit(e, t, i) {
     var n, s, a, c, d;
@@ -610,8 +613,8 @@ class z {
     var v, k, E;
     const n = Object.values(e).map((m) => typeof m == "string" ? m : Array.isArray(m) ? m.join(" ") : "").join(" ").toLowerCase(), s = /(https?:\/\/[^\s]+)/gi, a = n.match(s) || [], c = a.filter((m) => {
       const p = L(m);
-      return p ? M.some((h) => A(p, h)) : !1;
-    }), d = ((v = this.config) == null ? void 0 : v.salesKeywords) || S, l = ((k = this.config) == null ? void 0 : k.bannedKeywords) || D, u = d.filter((m) => m && n.includes(m.toLowerCase())), r = l.filter((m) => m && n.includes(m.toLowerCase())), b = U(e), g = [], x = ((E = this.config) == null ? void 0 : E.blockedDomains) || [];
+      return p ? $.some((h) => A(p, h)) : !1;
+    }), d = ((v = this.config) == null ? void 0 : v.salesKeywords) || S, l = ((k = this.config) == null ? void 0 : k.bannedKeywords) || D, u = d.filter((m) => m && n.includes(m.toLowerCase())), r = l.filter((m) => m && n.includes(m.toLowerCase())), b = M(e), g = [], x = ((E = this.config) == null ? void 0 : E.blockedDomains) || [];
     if (x.length > 0) {
       const m = Array.from(
         new Set(

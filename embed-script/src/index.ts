@@ -713,6 +713,7 @@ class FormBlockerCore {
         }
       }
       if (shouldScan) {
+        console.info(`[FormBlocker ${FORM_BLOCKER_VERSION}] DOM mutation detected, rescanning forms`);
         this.scheduleAttachScan();
       }
     });
@@ -792,6 +793,10 @@ class FormBlockerCore {
     });
 
     this.log('Attached to form', form);
+    console.info(
+      `[FormBlocker ${FORM_BLOCKER_VERSION}] Attached to form (selector: "${this.config.selector}")`,
+      form
+    );
   }
 
   private async handleSubmit(
