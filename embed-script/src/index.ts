@@ -242,6 +242,7 @@ interface ModalOptions {
 }
 
 let modalStylesInjected = false;
+let activeModalCleanup: (() => void) | null = null;
 
 function ensureModalStyles(): void {
   if (modalStylesInjected || typeof document === 'undefined') {
@@ -271,33 +272,32 @@ function ensureModalStyles(): void {
   width: min(480px, calc(100% - 32px));
   background: #ffffff;
   color: #0f172a;
-  border-radius: 16px;
-  padding: 28px 28px 24px;
+  border-radius: 18px;
+  padding: 30px 30px 26px;
   position: relative;
   box-shadow: 0 35px 65px rgba(15, 23, 42, 0.35);
   font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  user-select: text;
 }
 .fb-modal-hero {
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.8rem;
+  font-size: 1.95rem;
   font-weight: 700;
   margin-bottom: 18px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(248, 113, 113, 0.18));
 }
 .fb-modal-hero.fb-error {
-  background: rgba(239, 68, 68, 0.15);
   color: #b91c1c;
 }
 .fb-modal-hero.fb-warning {
-  background: rgba(245, 158, 11, 0.15);
   color: #92400e;
 }
 .fb-modal-hero.fb-info {
-  background: rgba(14, 165, 233, 0.15);
   color: #0369a1;
 }
 .fb-modal-window.fb-error {
@@ -325,15 +325,15 @@ function ensureModalStyles(): void {
   font-weight: 700;
 }
 .fb-modal-subtitle {
-  margin: 0 0 12px;
-  font-size: 0.95rem;
+  margin: 0 0 14px;
+  font-size: 0.97rem;
   color: #475569;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 .fb-modal-message {
   margin: 0;
-  line-height: 1.6;
-  color: #1f2937;
+  line-height: 1.7;
+  color: #0f172a;
 }
 .fb-modal-note {
   margin-top: 18px;
@@ -343,13 +343,31 @@ function ensureModalStyles(): void {
   border-radius: 12px;
   padding: 12px 14px;
 }
-.fb-reason-list {
-  margin: 16px 0 0;
-  padding-left: 20px;
-  color: #475569;
+.fb-reason-section {
+  margin-top: 18px;
 }
-.fb-reason-list li {
-  margin-bottom: 4px;
+.fb-reason-label {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 600;
+}
+.fb-reason-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fb-reason-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(239, 246, 255, 0.9);
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  color: #0f172a;
+  font-size: 0.9rem;
+  line-height: 1.2;
 }
 .fb-submission-id {
   margin-top: 18px;
@@ -370,6 +388,7 @@ function ensureModalStyles(): void {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
+  user-select: none;
 }
 .fb-modal-btn.fb-secondary {
   background: #e2e8f0;
@@ -388,8 +407,10 @@ function ensureModalStyles(): void {
   .fb-modal-message {
     color: #e2e8f0;
   }
-  .fb-reason-list {
-    color: #cbd5f5;
+  .fb-reason-chip {
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(125, 211, 252, 0.45);
+    color: #e2e8f0;
   }
   .fb-submission-id {
     color: #94a3b8;
@@ -425,6 +446,37 @@ function getHeroSymbol(type: ModalTone): string {
   }
 }
 
+function prettifyReason(reason: string): string {
+  const dictionary: Record<string, string> = {
+    url_detected: 'URL を検知',
+    scheduling_url: '日程調整リンクを検知',
+    sales_keywords: '営業キーワードを検知',
+    banned_keywords: '禁止キーワードを検知',
+    paste_detected: 'ペースト入力を検知',
+    blocked_domain: 'ブロック済みドメイン',
+    disposable_email: '使い捨てメールドメイン',
+    high_spam_score: 'スパムスコアが高い',
+    high_sales_score: '営業スコアが高い',
+    self_report_required: '自己申告が必要',
+  };
+
+  if (dictionary[reason]) {
+    return dictionary[reason];
+  }
+
+  const normalized = reason
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  if (!normalized) {
+    return '不明な理由';
+  }
+
+  return normalized[0].toUpperCase() + normalized.slice(1);
+}
+
 function showDecisionModal(options: ModalOptions): void {
   if (typeof document === 'undefined') {
     return;
@@ -432,8 +484,18 @@ function showDecisionModal(options: ModalOptions): void {
 
   ensureModalStyles();
 
+  if (activeModalCleanup) {
+    activeModalCleanup();
+  }
+
   const overlay = document.createElement('div');
   overlay.className = 'fb-modal-overlay';
+
+  const handleEscape = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' || event.key === 'Esc') {
+      closeModal();
+    }
+  };
 
   const modal = document.createElement('div');
   modal.className = `fb-modal-window fb-${options.type}`;
@@ -448,12 +510,18 @@ function showDecisionModal(options: ModalOptions): void {
 
   const closeModal = () => {
     overlay.classList.add('fb-modal-hide');
+    document.removeEventListener('keydown', handleEscape);
     window.setTimeout(() => {
       if (overlay.parentElement) {
         overlay.parentElement.removeChild(overlay);
       }
+      if (activeModalCleanup === closeModal) {
+        activeModalCleanup = null;
+      }
     }, 180);
   };
+
+  activeModalCleanup = closeModal;
 
   const closeButton = document.createElement('button');
   closeButton.className = 'fb-modal-close';
@@ -488,14 +556,26 @@ function showDecisionModal(options: ModalOptions): void {
   modal.appendChild(message);
 
   if (options.reasons && options.reasons.length > 0) {
-    const list = document.createElement('ul');
-    list.className = 'fb-reason-list';
+    const section = document.createElement('div');
+    section.className = 'fb-reason-section';
+
+    const label = document.createElement('p');
+    label.className = 'fb-reason-label';
+    label.textContent = '検知された要因';
+    section.appendChild(label);
+
+    const chips = document.createElement('div');
+    chips.className = 'fb-reason-chips';
+
     options.reasons.forEach((reason) => {
-      const item = document.createElement('li');
-      item.textContent = reason;
-      list.appendChild(item);
+      const chip = document.createElement('span');
+      chip.className = 'fb-reason-chip';
+      chip.textContent = prettifyReason(reason);
+      chips.appendChild(chip);
     });
-    modal.appendChild(list);
+
+    section.appendChild(chips);
+    modal.appendChild(section);
   }
 
   if (options.note) {
@@ -543,6 +623,7 @@ function showDecisionModal(options: ModalOptions): void {
     }
   });
 
+  document.addEventListener('keydown', handleEscape);
   document.body.appendChild(overlay);
 }
 
@@ -1049,13 +1130,37 @@ class FormBlockerCore {
       this.log('Preview mode enabled: submission prevented');
       return;
     }
-    this.log('Allowing native submission');
     const context = this.contexts.get(form);
-    if (context?.originalSubmit) {
-      const event = new Event('submit', { bubbles: true, cancelable: true });
-      context.originalSubmit.call(form, event as SubmitEvent);
-    } else {
-      form.submit();
+    const submitHandler = context?.submitHandler;
+
+    // Temporarily detach our intercept handler so native/JS submit handlers can run.
+    if (submitHandler) {
+      form.removeEventListener('submit', submitHandler, true);
+    }
+
+    try {
+      if (typeof form.requestSubmit === 'function') {
+        this.log('Allowing submission via requestSubmit');
+        form.requestSubmit();
+        return;
+      }
+
+      this.log('Allowing submission via dispatched submit event');
+      const submitEvent =
+        typeof SubmitEvent !== 'undefined'
+          ? new SubmitEvent('submit', { bubbles: true, cancelable: true })
+          : new Event('submit', { bubbles: true, cancelable: true });
+
+      const notCancelled = form.dispatchEvent(submitEvent);
+      if (notCancelled) {
+        form.submit();
+      } else {
+        this.log('Submit event was cancelled by page script');
+      }
+    } finally {
+      if (submitHandler) {
+        form.addEventListener('submit', submitHandler, true);
+      }
     }
   }
 
