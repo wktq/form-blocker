@@ -86,15 +86,7 @@ export async function PATCH(
       );
     }
 
-    const executeUpdate = async (data: Record<string, unknown>) =>
-      supabase
-        .from('form_configs')
-        .update(data)
-        .eq('form_id', formId)
-        .select('*')
-        .single();
-
-    const executeInsert = async (data: Record<string, unknown>) =>
+    const executeUpsert = async (data: Record<string, unknown>) =>
       supabase
         .from('form_configs')
         .upsert(
@@ -114,7 +106,7 @@ export async function PATCH(
     let updateError: PostgrestError | null;
 
     while (true) {
-      const result = await executeUpdate(attemptPayload);
+      const result = await executeUpsert(attemptPayload);
       config = result.data;
       updateError = result.error;
 
@@ -131,26 +123,6 @@ export async function PATCH(
         const { [missingColumn]: _omit, ...rest } = attemptPayload;
         attemptPayload = rest;
         continue;
-      }
-
-      if (updateError.code === 'PGRST116') {
-        // No existing config row for this form; create one with the current payload.
-        const insertResult = await executeInsert(attemptPayload);
-        config = insertResult.data;
-        updateError = insertResult.error;
-
-        if (!updateError) {
-          break;
-        }
-
-        const insertMissingColumn = fallbackColumns.find((column) =>
-          (insertResult.error?.message || '').includes(`'${column}'`)
-        );
-        if (insertMissingColumn && insertMissingColumn in attemptPayload) {
-          const { [insertMissingColumn]: _omit, ...rest } = attemptPayload;
-          attemptPayload = rest;
-          continue;
-        }
       }
 
       break;

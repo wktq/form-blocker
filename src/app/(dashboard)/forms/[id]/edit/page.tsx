@@ -47,6 +47,8 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { refreshForms, selectForm } = useFormContext();
   const [formData, setFormData] = useState<FormState>(DEFAULT_STATE);
+  const [supportsBlockedDomains, setSupportsBlockedDomains] = useState(false);
+  const [supportsFormSelector, setSupportsFormSelector] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,18 +73,22 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
         const detail: FormDetail | null = body.form ?? null;
         const config = detail?.form_configs?.[0];
         if (!cancelled) {
+          const hasBlockedDomains = Boolean(config && 'blocked_domains' in config);
+          const hasFormSelector = Boolean(config && 'form_selector' in config);
+          setSupportsBlockedDomains(hasBlockedDomains);
+          setSupportsFormSelector(hasFormSelector);
           setFormData({
             name: detail?.name ?? '',
             site_url: detail?.site_url ?? '',
             is_active: detail?.is_active ?? true,
             enable_url_detection: config?.enable_url_detection ?? true,
             enable_paste_detection: config?.enable_paste_detection ?? true,
-            threshold_sales: Math.round((config?.threshold_sales ?? 0.7) * 100),
-            threshold_spam: Math.round((config?.threshold_spam ?? 0.85) * 100),
+            threshold_sales: Math.round((Number(config?.threshold_sales ?? 0.7)) * 100),
+            threshold_spam: Math.round((Number(config?.threshold_spam ?? 0.85)) * 100),
             banned_keywords: (config?.banned_keywords ?? []).join(', '),
             allowed_domains: (config?.allowed_domains ?? []).join(', '),
-            blocked_domains: (config?.blocked_domains ?? []).join(', '),
-            form_selector: config?.form_selector ?? 'form',
+            blocked_domains: hasBlockedDomains ? (config?.blocked_domains ?? []).join(', ') : '',
+            form_selector: hasFormSelector ? config?.form_selector ?? 'form' : 'form',
           });
           if (detail) {
             selectForm(detail.id);
@@ -147,11 +153,15 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
           .split(',')
           .map((domain) => domain.trim())
           .filter(Boolean),
-        blocked_domains: formData.blocked_domains
-          .split(',')
-          .map((domain) => domain.trim())
-          .filter(Boolean),
-        form_selector: formData.form_selector?.trim() || 'form',
+        ...(supportsBlockedDomains && {
+          blocked_domains: formData.blocked_domains
+            .split(',')
+            .map((domain) => domain.trim())
+            .filter(Boolean),
+        }),
+        ...(supportsFormSelector && {
+          form_selector: formData.form_selector?.trim() || 'form',
+        }),
       };
 
       const configResponse = await fetch(`/api/forms/${formId}/config`, {
@@ -311,7 +321,7 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
                 value={formData.banned_keywords}
                 onChange={(e) => setFormData({ ...formData, banned_keywords: e.target.value })}
                 rows={3}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="営業, セールス, 販売促進, 広告代理店"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -327,7 +337,7 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
                 value={formData.allowed_domains}
                 onChange={(e) => setFormData({ ...formData, allowed_domains: e.target.value })}
                 rows={2}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="example.com"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -343,7 +353,7 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
                 value={formData.blocked_domains}
                 onChange={(e) => setFormData({ ...formData, blocked_domains: e.target.value })}
                 rows={3}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="example.com, calendly.com"
               />
               <p className="text-xs text-gray-500 mt-1">

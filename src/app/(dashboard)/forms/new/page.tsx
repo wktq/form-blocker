@@ -184,7 +184,7 @@ export default function NewFormPage() {
                 value={formData.banned_keywords}
                 onChange={(e) => setFormData({ ...formData, banned_keywords: e.target.value })}
                 rows={3}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 placeholder="営業, セールス, 販売促進, 広告"
               />
             <p className="text-xs text-gray-500 mt-1">
@@ -200,7 +200,7 @@ export default function NewFormPage() {
               value={formData.blocked_domains}
               onChange={(e) => setFormData({ ...formData, blocked_domains: e.target.value })}
               rows={3}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="example.com, calendly.com"
             />
             <p className="text-xs text-gray-500 mt-1">

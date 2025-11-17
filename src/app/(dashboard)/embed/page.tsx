@@ -123,7 +123,7 @@ export default function EmbedCodePage() {
                 </label>
                 <textarea
                   rows={4}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                   placeholder="お問い合わせ内容を入力してください"
                 />
               </div>
