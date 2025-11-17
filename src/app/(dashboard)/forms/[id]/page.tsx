@@ -724,8 +724,6 @@ ${selectorLine}  });
                   </p>
                   <ul className="list-disc list-inside mt-3 space-y-1">
                     <li>入力中はリアルタイムで検出状態が右側に表示されます。</li>
-                    <li>送信ボタンを押すと `/api/v1/evaluate` が呼び出されます。</li>
-                    <li>プレビューでは実際の送信は行われません。</li>
                   </ul>
                 </div>
 

@@ -907,7 +907,12 @@ class FormBlockerCore {
   }
 
   private log(message: string, payload?: unknown): void {
-    if (!this.config?.debug) return;
+    const globalDebug =
+      typeof window !== 'undefined' &&
+      ((window as { FormBlockerDebug?: boolean }).FormBlockerDebug === true ||
+        localStorage.getItem('formblocker:debug') === 'true');
+
+    if (!this.config?.debug && !globalDebug) return;
     if (payload !== undefined) {
       console.log(`[FormBlocker ${FORM_BLOCKER_VERSION}] ${message}`, payload);
     } else {
@@ -988,6 +993,12 @@ const core = new FormBlockerCore();
 
 const FormBlocker = {
   init(options: FormBlockerInitOptions): void {
+    if (typeof window !== 'undefined') {
+      const persistentDebug = localStorage.getItem('formblocker:debug');
+      if (persistentDebug === 'true') {
+        options = { ...options, debug: true };
+      }
+    }
     core.init(options);
   },
   refresh(): void {

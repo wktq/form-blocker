@@ -264,12 +264,18 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
                 setFormData({ ...formData, enable_paste_detection: e.target.checked })
               }
             />
-            <Input
-              label="監視するフォームセレクター"
-              value={formData.form_selector}
-              onChange={(e) => setFormData({ ...formData, form_selector: e.target.value })}
-              placeholder="form.contact-form"
-            />
+            {supportsFormSelector ? (
+              <Input
+                label="監視するフォームセレクター"
+                value={formData.form_selector}
+                onChange={(e) => setFormData({ ...formData, form_selector: e.target.value })}
+                placeholder="form.contact-form"
+              />
+            ) : (
+              <p className="text-xs text-gray-500">
+                この環境のスキーマには form_selector 列がありません。保存の対象外になります。
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -349,16 +355,24 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 ブロック対象ドメイン
               </label>
-              <textarea
-                value={formData.blocked_domains}
-                onChange={(e) => setFormData({ ...formData, blocked_domains: e.target.value })}
-                rows={3}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="example.com, calendly.com"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                カンマ区切りで入力してください。サブドメインもまとめて指定できます。
-              </p>
+              {supportsBlockedDomains ? (
+                <>
+                  <textarea
+                    value={formData.blocked_domains}
+                    onChange={(e) => setFormData({ ...formData, blocked_domains: e.target.value })}
+                    rows={3}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="example.com, calendly.com"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    カンマ区切りで入力してください。サブドメインもまとめて指定できます。
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  この環境のスキーマには blocked_domains 列がありません。保存の対象外になります。
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
