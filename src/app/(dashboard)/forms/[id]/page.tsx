@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { useFormContext } from '@/lib/forms/context';
 import { formatDate } from '@/lib/utils';
 import type { EvaluateResponse, Form, FormConfig } from '@/types';
@@ -308,23 +309,29 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
   const fallbackPasteDetectedRef = useRef(false);
   const formLoadTimeRef = useRef<number>(Date.now());
   const scriptVersion = useMemo(() => Date.now().toString(), []);
+  const [dynamicForm, setDynamicForm] = useState(false);
   const embedSnippet = useMemo(() => {
     const cdnUrl = process.env.NEXT_PUBLIC_CDN_URL || 'http://localhost:3000';
     const apiKey = form?.api_key ?? 'fb_live_xxxxxxxxxxxx';
     const selectorValue = config?.form_selector?.trim() ?? '';
     const normalizedSelector = selectorValue.length > 0 ? selectorValue : PREVIEW_FORM_SELECTOR;
     const needsSelectorLine = normalizedSelector !== 'form';
-    const selectorLine = needsSelectorLine
-      ? `    selector: '${normalizedSelector.replace(/'/g, "\\'")}',\n`
-      : '';
-    return `<!-- FormBlocker -->
-<script src="${cdnUrl}/embed/form-blocker.min.js"></script>
-<script>
-  FormBlocker.init({
-    apiKey: '${apiKey}',
-${selectorLine}  });
-</script>`;
-  }, [config?.form_selector, form?.api_key]);
+    const lines = [
+      '<!-- FormBlocker -->',
+      `<script src="${cdnUrl}/embed/form-blocker.min.js"></script>`,
+      '<script>',
+      '  FormBlocker.init({',
+      `    apiKey: '${apiKey}',`,
+    ];
+    if (needsSelectorLine) {
+      lines.push(`    selector: '${normalizedSelector.replace(/'/g, "\\'")}',`);
+    }
+    if (dynamicForm) {
+      lines.push('    observeMutations: true,');
+    }
+    lines.push('  });', '</script>');
+    return lines.join('\n');
+  }, [config?.form_selector, dynamicForm, form?.api_key]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1015,6 +1022,16 @@ ${selectorLine}  });
                 <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto">
 {embedSnippet}
                 </pre>
+                <div className="flex flex-col gap-1">
+                  <Checkbox
+                    label="動的なフォーム"
+                    checked={dynamicForm}
+                    onChange={(e) => setDynamicForm(e.target.checked)}
+                  />
+                  <p className="text-xs text-gray-500">
+                    SPA やフォームが動的に追加されるページの場合にオンにすると、`observeMutations` が有効なコードが表示されます。
+                  </p>
+                </div>
                 <p className="text-xs text-gray-500">
                   送信結果や履歴は Supabase の設定と `/api/v1/evaluate` を通じて保存されます。
                 </p>
