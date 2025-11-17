@@ -75,7 +75,7 @@ export default function SettingsPage() {
   const thresholds = useMemo(
     () => ({
       sales: Math.round((config?.threshold_sales ?? 0.7) * 100),
-      spam: Math.round((config?.threshold_spam ?? 0.85) * 100),
+      spam: Math.round((config?.threshold_spam ?? 0.7) * 100),
     }),
     [config]
   );

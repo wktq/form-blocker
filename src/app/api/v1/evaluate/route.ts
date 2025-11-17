@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
         enable_url_detection: true,
         enable_paste_detection: true,
         threshold_sales: 0.7,
-        threshold_spam: 0.85,
+        threshold_spam: 0.7,
         banned_keywords: [] as string[],
         allowed_domains: [] as string[],
         blocked_domains: [] as string[],
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
       allowed_domains: config.allowed_domains ?? [],
       blocked_domains: config.blocked_domains ?? [],
       threshold_sales: typeof config.threshold_sales === 'number' ? config.threshold_sales : 0.7,
-      threshold_spam: typeof config.threshold_spam === 'number' ? config.threshold_spam : 0.85,
+      threshold_spam: typeof config.threshold_spam === 'number' ? config.threshold_spam : 0.7,
       enable_url_detection:
         typeof config.enable_url_detection === 'boolean' ? config.enable_url_detection : true,
       enable_paste_detection:

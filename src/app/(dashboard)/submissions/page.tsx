@@ -213,9 +213,9 @@ export default function SubmissionsPage() {
                           <span className="text-xs text-gray-600">営業スコア:</span>
                           <span
                             className={`text-sm font-semibold ${
-                              submission.score_sales >= 0.85
+                              submission.score_sales >= 0.7
                                 ? 'text-red-600'
-                                : submission.score_sales >= 0.7
+                                : submission.score_sales >= 0.5
                                 ? 'text-yellow-600'
                                 : 'text-green-600'
                             }`}
@@ -227,9 +227,9 @@ export default function SubmissionsPage() {
                           <span className="text-xs text-gray-600">スパムスコア:</span>
                           <span
                             className={`text-sm font-semibold ${
-                              submission.score_spam >= 0.85
+                              submission.score_spam >= 0.7
                                 ? 'text-red-600'
-                                : submission.score_spam >= 0.7
+                                : submission.score_spam >= 0.5
                                 ? 'text-yellow-600'
                                 : 'text-green-600'
                             }`}

@@ -690,9 +690,14 @@ ${selectorLine}  });
             作成日: {formatDate(form.created_at)}
           </p>
         </div>
-        <Badge variant={form.is_active ? 'success' : 'default'} className="text-base px-4 py-2">
-          {form.is_active ? 'アクティブ' : '無効'}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={form.is_active ? 'success' : 'default'} className="text-base px-4 py-2">
+            {form.is_active ? 'アクティブ' : '無効'}
+          </Badge>
+          <Link href={`/forms/${form.id}/edit`}>
+            <Button variant="secondary">編集</Button>
+          </Link>
+        </div>
       </div>
 
       {config && (
@@ -737,20 +742,20 @@ ${selectorLine}  });
                     <input
                       type="text"
                       name="name"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-white"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                       placeholder="山田太郎"
                       autoComplete="off"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 text-white">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       メールアドレス
                     </label>
                     <input
                       type="email"
                       name="email"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-white"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                       placeholder="yamada@example.com"
                       autoComplete="off"
                     />
@@ -763,7 +768,7 @@ ${selectorLine}  });
                     <textarea
                       name="message"
                       rows={5}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                       placeholder="お問い合わせ内容を入力してください"
                     />
                   </div>
@@ -955,13 +960,13 @@ ${selectorLine}  });
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">営業スコア閾値</p>
                   <p className="text-base font-semibold text-gray-900">
-                    {Math.round((config?.threshold_sales || 0) * 100)}%
+                    {Math.round(((config?.threshold_sales ?? 0.7) * 100))}%
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 uppercase tracking-wide">スパムスコア閾値</p>
                   <p className="text-base font-semibold text-gray-900">
-                    {Math.round((config?.threshold_spam || 0) * 100)}%
+                    {Math.round(((config?.threshold_spam ?? 0.85) * 100))}%
                   </p>
                 </div>
                 {config?.banned_keywords?.length ? (

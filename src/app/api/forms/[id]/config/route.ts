@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -85,12 +86,75 @@ export async function PATCH(
       );
     }
 
-    const { data: config, error: updateError } = await supabase
-      .from('form_configs')
-      .update(payload)
-      .eq('form_id', formId)
-      .select('*')
-      .single();
+    const executeUpdate = async (data: Record<string, unknown>) =>
+      supabase
+        .from('form_configs')
+        .update(data)
+        .eq('form_id', formId)
+        .select('*')
+        .single();
+
+    const executeInsert = async (data: Record<string, unknown>) =>
+      supabase
+        .from('form_configs')
+        .upsert(
+          {
+            form_id: formId,
+            ...data,
+          },
+          { onConflict: 'form_id' }
+        )
+        .select('*')
+        .single();
+
+    const fallbackColumns = ['blocked_domains', 'form_selector'] as const;
+
+    let attemptPayload: Record<string, unknown> = payload;
+    let config;
+    let updateError: PostgrestError | null;
+
+    while (true) {
+      const result = await executeUpdate(attemptPayload);
+      config = result.data;
+      updateError = result.error;
+
+      if (!updateError) {
+        break;
+      }
+
+      const message = updateError.message || '';
+      const missingColumn = fallbackColumns.find((column) =>
+        message.includes(`'${column}'`)
+      );
+
+      if (missingColumn && missingColumn in attemptPayload) {
+        const { [missingColumn]: _omit, ...rest } = attemptPayload;
+        attemptPayload = rest;
+        continue;
+      }
+
+      if (updateError.code === 'PGRST116') {
+        // No existing config row for this form; create one with the current payload.
+        const insertResult = await executeInsert(attemptPayload);
+        config = insertResult.data;
+        updateError = insertResult.error;
+
+        if (!updateError) {
+          break;
+        }
+
+        const insertMissingColumn = fallbackColumns.find((column) =>
+          (insertResult.error?.message || '').includes(`'${column}'`)
+        );
+        if (insertMissingColumn && insertMissingColumn in attemptPayload) {
+          const { [insertMissingColumn]: _omit, ...rest } = attemptPayload;
+          attemptPayload = rest;
+          continue;
+        }
+      }
+
+      break;
+    }
 
     if (updateError) {
       console.error('Failed to update form config:', updateError);

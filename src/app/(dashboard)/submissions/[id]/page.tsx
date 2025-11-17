@@ -186,9 +186,9 @@ export default function SubmissionDetailPage({
               <span className="text-sm font-medium text-gray-700">営業スコア</span>
               <span
                 className={`text-lg font-bold ${
-                  submission.score_sales >= 0.85
+                  submission.score_sales >= 0.7
                     ? 'text-red-600'
-                    : submission.score_sales >= 0.7
+                    : submission.score_sales >= 0.5
                     ? 'text-yellow-600'
                     : 'text-green-600'
                 }`}
@@ -199,9 +199,9 @@ export default function SubmissionDetailPage({
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className={`h-3 rounded-full ${
-                  submission.score_sales >= 0.85
+                  submission.score_sales >= 0.7
                     ? 'bg-red-600'
-                    : submission.score_sales >= 0.7
+                    : submission.score_sales >= 0.5
                     ? 'bg-yellow-500'
                     : 'bg-green-500'
                 }`}
@@ -215,9 +215,9 @@ export default function SubmissionDetailPage({
               <span className="text-sm font-medium text-gray-700">スパムスコア</span>
               <span
                 className={`text-lg font-bold ${
-                  submission.score_spam >= 0.85
+                  submission.score_spam >= 0.7
                     ? 'text-red-600'
-                    : submission.score_spam >= 0.7
+                    : submission.score_spam >= 0.5
                     ? 'text-yellow-600'
                     : 'text-green-600'
                 }`}
@@ -228,9 +228,9 @@ export default function SubmissionDetailPage({
             <div className="w-full bg-gray-200 rounded-full h-3">
               <div
                 className={`h-3 rounded-full ${
-                  submission.score_spam >= 0.85
+                  submission.score_spam >= 0.7
                     ? 'bg-red-600'
-                    : submission.score_spam >= 0.7
+                    : submission.score_spam >= 0.5
                     ? 'bg-yellow-500'
                     : 'bg-green-500'
                 }`}

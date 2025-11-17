@@ -632,6 +632,13 @@ class FormBlockerCore {
     }
 
     const forms = document.querySelectorAll<HTMLFormElement>(this.config.selector);
+    this.log('Searching forms with selector', {
+      selector: this.config.selector,
+      found: forms.length,
+    });
+    if (forms.length === 0) {
+      console.warn(`[FormBlocker ${FORM_BLOCKER_VERSION}] No forms matched selector ${this.config.selector}`);
+    }
     forms.forEach((form) => {
       if (this.contexts.has(form)) {
         return;
@@ -705,6 +712,7 @@ class FormBlockerCore {
 
     event.preventDefault();
     event.stopPropagation();
+    this.log('Intercepted submit', { selector: this.config.selector });
 
     behavioral.timeToSubmit = (Date.now() - behavioral.pageLoadTime) / 1000;
 
@@ -809,6 +817,13 @@ class FormBlockerCore {
   }
 
   private handleDecision(result: EvaluateSuccessResponse, form: HTMLFormElement): void {
+    this.log('Handling decision', {
+      decision: result.decision,
+      scores: result.scores,
+      reasons: result.reasons,
+      challenge: result.challenge,
+      submissionId: result.submission_id,
+    });
     switch (result.decision) {
       case 'allowed':
         this.allowSubmission(form);
@@ -836,6 +851,10 @@ class FormBlockerCore {
   }
 
   private handleChallenge(result: EvaluateSuccessResponse, form: HTMLFormElement): void {
+    this.log('Challenge presented', {
+      question: result.challenge?.question,
+      submissionId: result.submission_id,
+    });
     const allow = () => {
       this.allowSubmission(form);
       this.config?.onAllow?.(result);
@@ -856,8 +875,10 @@ class FormBlockerCore {
 
   private allowSubmission(form: HTMLFormElement): void {
     if (this.config?.previewMode) {
+      this.log('Preview mode enabled: submission prevented');
       return;
     }
+    this.log('Allowing native submission');
     const context = this.contexts.get(form);
     if (context?.originalSubmit) {
       const event = new Event('submit', { bubbles: true, cancelable: true });
@@ -895,17 +916,15 @@ class FormBlockerCore {
   }
 
   private emitDetectionUpdate(form: HTMLFormElement, behavioral: BehavioralSnapshot): void {
-    if (!this.config?.onDetectionUpdate) {
-      return;
-    }
-
     const context = this.contexts.get(form);
     const formData = this.extractFormData(form);
     const snapshot = this.analyzeDetection(formData, behavioral);
 
     context && (context.lastDetection = snapshot);
 
-    this.config.onDetectionUpdate(snapshot);
+    this.log('Detection snapshot', snapshot);
+
+    this.config?.onDetectionUpdate?.(snapshot);
   }
 
   private analyzeDetection(formData: Record<string, unknown>, behavioral: BehavioralSnapshot): DetectionSnapshot {
@@ -987,6 +1006,7 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
+  console.info(`[FormBlocker ${FORM_BLOCKER_VERSION}] Script loaded`);
   window.FormBlocker = FormBlocker;
   (window as typeof window & { FormBlockerVersion?: string }).FormBlockerVersion = FORM_BLOCKER_VERSION;
 

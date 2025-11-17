@@ -126,6 +126,13 @@ export default function FormsPage() {
                       >
                         設定
                       </Link>
+                      <Link
+                        href={`/forms/${form.id}/edit`}
+                        onClick={() => selectForm(form.id)}
+                        className="text-sm text-gray-600 hover:text-gray-900"
+                      >
+                        編集
+                      </Link>
                     </div>
                   </div>
                 </div>
