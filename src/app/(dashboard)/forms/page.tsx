@@ -12,14 +12,26 @@ export default function FormsPage() {
   const { forms, selectForm, loading, error, refreshForms } = useFormContext();
   const [copyingId, setCopyingId] = useState<string | null>(null);
 
-  const handleCopy = useCallback(async (formId: string, apiKey: string) => {
+  const getEmbedCode = useCallback((apiKey: string) => {
+    return `<!-- FormBlocker -->
+<script src="${process.env.NEXT_PUBLIC_CDN_URL || 'http://localhost:3000'}/embed/form-blocker.min.js"></script>
+<script>
+  FormBlocker.init({
+    apiKey: '${apiKey}'
+  });
+</script>`;
+  }, []);
+
+  const handleCopyEmbedCode = useCallback(async (formId: string, apiKey: string) => {
     try {
       setCopyingId(formId);
-      await navigator.clipboard.writeText(apiKey);
-    } finally {
+      const embedCode = getEmbedCode(apiKey);
+      await navigator.clipboard.writeText(embedCode);
+      setTimeout(() => setCopyingId(null), 2000);
+    } catch (error) {
       setCopyingId(null);
     }
-  }, []);
+  }, [getEmbedCode]);
 
   return (
     <div className="space-y-6">
@@ -88,37 +100,24 @@ export default function FormsPage() {
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-600 mb-1">API Key</p>
-                    <div className="flex items-center space-x-2">
-                      <code className="text-xs font-mono text-gray-900 flex-1 truncate">
-                        {form.api_key}
-                      </code>
-                      <button
-                        onClick={() => handleCopy(form.id, form.api_key)}
-                        className="text-primary-600 hover:text-primary-700 text-xs"
-                      >
-                        {copyingId === form.id ? 'コピー済み' : 'コピー'}
-                      </button>
-                    </div>
-                  </div>
-
                   <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                    <Link
-                      href={`/forms/${form.id}`}
-                      onClick={() => selectForm(form.id)}
-                      className="text-sm text-primary-600 hover:text-primary-700"
-                    >
-                      詳細を見る
-                    </Link>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-3">
                       <Link
-                        href={`/forms/${form.id}#embed`}
+                        href={`/forms/${form.id}`}
                         onClick={() => selectForm(form.id)}
-                        className="text-sm text-gray-600 hover:text-gray-900"
+                        className="text-sm text-primary-600 hover:text-primary-700"
                       >
-                        埋め込みコード
+                        詳細を見る
                       </Link>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleCopyEmbedCode(form.id, form.api_key)}
+                      >
+                        {copyingId === form.id ? '✓ コピー済み' : '埋め込みコードをコピー'}
+                      </Button>
+                    </div>
+                    <div className="flex items-center space-x-2">
                       <Link
                         href={`/forms/${form.id}#settings`}
                         onClick={() => selectForm(form.id)}

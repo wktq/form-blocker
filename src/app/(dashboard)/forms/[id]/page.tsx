@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
+import { InfoIcon } from '@/components/ui/Tooltip';
 import { useFormContext } from '@/lib/forms/context';
 import { formatDate } from '@/lib/utils';
 import type { EvaluateResponse, Form, FormConfig } from '@/types';
@@ -18,6 +19,8 @@ type DetectionSnapshot = {
   salesKeywords: string[];
   bannedKeywords: string[];
   blockedDomains: string[];
+  whitelistKeywords: string[];
+  allowedDomains: string[];
   pasteDetected: boolean;
   contentLength: number;
   updatedAt: number;
@@ -34,7 +37,7 @@ type ChallengeState = {
 };
 
 type FormDetail = Form & {
-  form_configs?: FormConfig[];
+  form_configs?: FormConfig;  // オブジェクト（配列ではない）
 };
 
 declare global {
@@ -56,6 +59,8 @@ const createDefaultDetection = (): DetectionSnapshot => ({
   salesKeywords: [],
   bannedKeywords: [],
   blockedDomains: [],
+  whitelistKeywords: [],
+  allowedDomains: [],
   pasteDetected: false,
   contentLength: 0,
   updatedAt: Date.now(),
@@ -152,6 +157,8 @@ function buildLocalDetectionSnapshot(
   options: {
     bannedKeywords?: string[];
     blockedDomains?: string[];
+    whitelistKeywords?: string[];
+    allowedDomains?: string[];
     pasteDetected?: boolean;
   }
 ): DetectionSnapshot {
@@ -202,6 +209,27 @@ function buildLocalDetectionSnapshot(
         )
       : [];
 
+  // ホワイトリストキーワードの検出
+  const sourceWhitelist =
+    options?.whitelistKeywords && options.whitelistKeywords.length > 0
+      ? options.whitelistKeywords
+      : [];
+  const normalizedWhitelist = sourceWhitelist.map((keyword) => keyword.toLowerCase());
+  const whitelistKeywords = normalizedWhitelist.filter(
+    (keyword) => keyword && combinedLower.includes(keyword)
+  );
+
+  // ホワイトリストドメインの検出
+  const configuredAllowedDomains = (options?.allowedDomains || [])
+    .map(normalizeDomain)
+    .filter(Boolean);
+  const allowedDomains =
+    configuredAllowedDomains.length > 0
+      ? candidateDomains.filter((domain) =>
+          configuredAllowedDomains.some((allowed) => matchesDomain(domain, allowed))
+        )
+      : [];
+
   return {
     urlDetected: detectedUrls.length > 0,
     detectedUrls,
@@ -209,6 +237,8 @@ function buildLocalDetectionSnapshot(
     salesKeywords,
     bannedKeywords,
     blockedDomains,
+    whitelistKeywords,
+    allowedDomains,
     pasteDetected: Boolean(options?.pasteDetected),
     contentLength: combinedLower.length,
     updatedAt: Date.now(),
@@ -353,7 +383,7 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
         const detail: FormDetail | null = body.form ?? null;
         if (!cancelled) {
           setForm(detail);
-          setConfig(detail?.form_configs?.[0] ?? null);
+          setConfig(detail?.form_configs ?? null);
           if (detail) {
             selectForm(detail.id);
           }
@@ -450,6 +480,8 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
         debugRules: {
           bannedKeywords: config?.banned_keywords || [],
           blockedDomains: config?.blocked_domains || [],
+          whitelistKeywords: config?.whitelist_keywords || [],
+          allowedDomains: config?.allowed_domains || [],
         },
         onDetectionUpdate: (snapshot: DetectionSnapshot) => {
           setScriptDetectionActive(true);
@@ -496,7 +528,7 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
         window.FormBlocker.destroy();
       }
     };
-  }, [isScriptReady, form, config?.banned_keywords, config?.blocked_domains]);
+  }, [isScriptReady, form, config?.banned_keywords, config?.blocked_domains, config?.whitelist_keywords, config?.allowed_domains]);
 
   useEffect(() => {
     if (scriptDetectionActive) {
@@ -512,6 +544,8 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
       const snapshot = buildLocalDetectionSnapshot(formElement, {
         bannedKeywords: config?.banned_keywords,
         blockedDomains: config?.blocked_domains,
+        whitelistKeywords: config?.whitelist_keywords,
+        allowedDomains: config?.allowed_domains,
         pasteDetected: fallbackPasteDetectedRef.current,
       });
       setDetection(snapshot);
@@ -541,6 +575,8 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
     form?.id,
     config?.banned_keywords,
     config?.blocked_domains,
+    config?.whitelist_keywords,
+    config?.allowed_domains,
   ]);
 
   const applyEvaluationResult = (result: EvaluateResponse) => {
@@ -640,45 +676,78 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
     );
   }
 
-  const detectionItems = [
+  // 検出シグナル（参考情報）
+  const signalItems = [
     {
       label: 'URL検出',
       active: detection.urlDetected,
       detail:
-        detection.detectedUrls.length > 0 ? detection.detectedUrls.join(', ') : 'なし',
+        (detection.detectedUrls?.length ?? 0) > 0 ? detection.detectedUrls.join(', ') : 'なし',
+      tooltip: 'フォーム内容にURLが含まれている場合に検出されます。営業・スパム送信でよく見られるパターンです。',
     },
     {
       label: '日程調整URL',
-      active: detection.schedulingUrls.length > 0,
+      active: (detection.schedulingUrls?.length ?? 0) > 0,
       detail:
-        detection.schedulingUrls.length > 0 ? detection.schedulingUrls.join(', ') : 'なし',
+        (detection.schedulingUrls?.length ?? 0) > 0 ? detection.schedulingUrls.join(', ') : 'なし',
+      tooltip: 'Calendly、HubSpotなど営業活動でよく使われる日程調整サービスのURLが検出された場合に表示されます。',
     },
     {
       label: '営業キーワード',
-      active: detection.salesKeywords.length > 0,
+      active: (detection.salesKeywords?.length ?? 0) > 0,
       detail:
-        detection.salesKeywords.length > 0 ? detection.salesKeywords.join(', ') : 'なし',
-    },
-    {
-      label: '禁止キーワード',
-      active: detection.bannedKeywords.length > 0,
-      detail:
-        detection.bannedKeywords.length > 0
-          ? detection.bannedKeywords.join(', ')
-          : 'なし',
-    },
-    {
-      label: 'ブロック対象ドメイン',
-      active: detection.blockedDomains.length > 0,
-      detail:
-        detection.blockedDomains.length > 0
-          ? detection.blockedDomains.join(', ')
-          : 'なし',
+        (detection.salesKeywords?.length ?? 0) > 0 ? detection.salesKeywords.join(', ') : 'なし',
+      tooltip: '「営業」「セールス」「提案」「御社」など、営業目的の送信でよく使われるキーワードが含まれている場合に検出されます。',
     },
     {
       label: '貼り付け検出',
       active: detection.pasteDetected,
       detail: detection.pasteDetected ? '貼り付けあり' : '検出なし',
+      tooltip: 'コピー&ペーストで入力された内容を検出します。大量のテキストを一度に貼り付ける営業・スパム行為に対応します。',
+    },
+  ];
+
+  // ブラックリスト判定（即ブロック）
+  const blacklistItems = [
+    {
+      label: '禁止キーワード',
+      active: (detection.bannedKeywords?.length ?? 0) > 0,
+      detail:
+        (detection.bannedKeywords?.length ?? 0) > 0
+          ? detection.bannedKeywords.join(', ')
+          : 'なし',
+      tooltip: 'フォーム設定で指定した禁止キーワードが含まれている場合に検出されます。一致すると即ブロックの対象となります。',
+    },
+    {
+      label: 'ブロック対象ドメイン',
+      active: (detection.blockedDomains?.length ?? 0) > 0,
+      detail:
+        (detection.blockedDomains?.length ?? 0) > 0
+          ? detection.blockedDomains.join(', ')
+          : 'なし',
+      tooltip: 'フォーム設定で指定したブロック対象ドメインがURL・メールアドレスに含まれている場合に検出されます。一致すると即ブロックの対象となります。',
+    },
+  ];
+
+  // ホワイトリスト判定（即許可）
+  const whitelistItems = [
+    {
+      label: '許可キーワード',
+      active: (detection.whitelistKeywords?.length ?? 0) > 0,
+      detail:
+        (detection.whitelistKeywords?.length ?? 0) > 0
+          ? detection.whitelistKeywords.join(', ')
+          : 'なし',
+      tooltip: 'フォーム設定で指定した許可キーワードが含まれている場合に検出されます。一致すると他のフラグに関係なく即許可されます。',
+    },
+    {
+      label: '許可ドメイン',
+      active: (detection.allowedDomains?.length ?? 0) > 0,
+      detail:
+        (detection.allowedDomains?.length ?? 0) > 0
+          ? detection.allowedDomains.join(', ')
+          : 'なし',
+      tooltip: 'フォーム設定で指定した許可ドメインがURL・メールアドレスに含まれている場合に検出されます。一致すると他のフラグに関係なく即許可されます。',
     },
   ];
 
@@ -931,32 +1000,106 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
           <section id="insights">
             <Card>
               <CardHeader>
-                <CardTitle>リアルタイム検出</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  リアルタイム検出
+                  <InfoIcon tooltip="フォーム入力中にリアルタイムで検出されるシグナルです。これらは埋め込みスクリプトが自動的に検出する内容で、最終的な判定スコアに影響します。検出されたからといって必ずしもブロックされるわけではなく、複数の要素を総合的に判定します。" />
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 <div className="text-xs text-gray-500">
                   最終更新: {formatDate(new Date(detection.updatedAt))}
                 </div>
                 <div className="text-sm text-gray-600">
                   合計文字数: <span className="font-medium">{detection.contentLength}</span>
                 </div>
+
+                {/* 検出シグナル */}
                 <div className="space-y-3">
-                  {detectionItems.map((item) => (
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-gray-700">検出シグナル</h4>
+                    <InfoIcon tooltip="営業・スパムの可能性を示唆するシグナルです。これらが検出されるとスコアが上昇しますが、即ブロックにはなりません。" />
+                  </div>
+                  {signalItems.map((item) => (
                     <div
                       key={item.label}
                       className={`border rounded-lg p-3 text-sm ${
                         item.active
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          ? 'border-blue-400 bg-blue-50 text-blue-900'
                           : 'border-gray-200 text-gray-600'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">{item.label}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{item.label}</span>
+                          <InfoIcon tooltip={item.tooltip} />
+                        </div>
                         <span className="text-xs uppercase tracking-wide">
                           {item.active ? '検出' : '未検出'}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-600">{item.detail}</p>
+                      <p className="text-xs opacity-80">{item.detail}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ブラックリスト判定 */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-red-700">ブラックリスト判定</h4>
+                    <InfoIcon tooltip="これらが一致すると即ブロックの対象となります。他の条件に関係なく最優先で処理されます。" />
+                  </div>
+                  {blacklistItems.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`border rounded-lg p-3 text-sm ${
+                        item.active
+                          ? 'border-red-500 bg-red-50 text-red-900'
+                          : 'border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{item.label}</span>
+                          <InfoIcon tooltip={item.tooltip} />
+                        </div>
+                        <span className={`text-xs uppercase tracking-wide font-semibold ${
+                          item.active ? 'text-red-700' : ''
+                        }`}>
+                          {item.active ? '一致 - 即ブロック' : '未検出'}
+                        </span>
+                      </div>
+                      <p className="text-xs opacity-80">{item.detail}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ホワイトリスト判定 */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold text-green-700">ホワイトリスト判定</h4>
+                    <InfoIcon tooltip="これらが一致すると即許可されます。ブラックリストより優先され、他のフラグに関係なく送信が許可されます。" />
+                  </div>
+                  {whitelistItems.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`border rounded-lg p-3 text-sm ${
+                        item.active
+                          ? 'border-green-500 bg-green-50 text-green-900'
+                          : 'border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">{item.label}</span>
+                          <InfoIcon tooltip={item.tooltip} />
+                        </div>
+                        <span className={`text-xs uppercase tracking-wide font-semibold ${
+                          item.active ? 'text-green-700' : ''
+                        }`}>
+                          {item.active ? '一致 - 即許可' : '未検出'}
+                        </span>
+                      </div>
+                      <p className="text-xs opacity-80">{item.detail}</p>
                     </div>
                   ))}
                 </div>
@@ -1000,38 +1143,81 @@ export default function FormDetailPage({ params }: { params: { id: string } }) {
                     {Math.round(((config?.threshold_spam ?? 0.85) * 100))}%
                   </p>
                 </div>
-                {config?.banned_keywords?.length ? (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                      禁止キーワード
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {config.banned_keywords.map((keyword) => (
-                        <Badge key={keyword} variant="default">
-                          {keyword}
-                        </Badge>
-                      ))}
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-2">
+                    ブラックリスト設定
+                  </p>
+                  {config?.banned_keywords?.length ? (
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                        禁止キーワード
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {config.banned_keywords.map((keyword) => (
+                          <Badge key={keyword} variant="danger">
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500">禁止キーワードは設定されていません。</p>
-                )}
-                {config?.blocked_domains?.length ? (
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                      ブロック対象ドメイン
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {config.blocked_domains.map((domain) => (
-                        <Badge key={domain} variant="default">
-                          {domain}
-                        </Badge>
-                      ))}
+                  ) : (
+                    <p className="text-xs text-gray-500 mb-3">禁止キーワードは設定されていません。</p>
+                  )}
+                  {config?.blocked_domains?.length ? (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                        ブロック対象ドメイン
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {config.blocked_domains.map((domain) => (
+                          <Badge key={domain} variant="danger">
+                            {domain}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-500">ブロック対象ドメインは設定されていません。</p>
-                )}
+                  ) : (
+                    <p className="text-xs text-gray-500">ブロック対象ドメインは設定されていません。</p>
+                  )}
+                </div>
+
+                <div className="border-t border-gray-200 pt-3">
+                  <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">
+                    ホワイトリスト設定
+                  </p>
+                  {config?.whitelist_keywords?.length ? (
+                    <div className="mb-3">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                        許可キーワード
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {config.whitelist_keywords.map((keyword) => (
+                          <Badge key={keyword} variant="success">
+                            {keyword}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 mb-3">許可キーワードは設定されていません。</p>
+                  )}
+                  {config?.allowed_domains?.length ? (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                        許可ドメイン
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {config.allowed_domains.map((domain) => (
+                          <Badge key={domain} variant="success">
+                            {domain}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">許可ドメインは設定されていません。</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </section>

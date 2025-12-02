@@ -1,12 +1,29 @@
 -- Billing schema for Stripe subscriptions
 
--- Enum definitions
-CREATE TYPE billing_plan_interval AS ENUM ('month', 'year');
-CREATE TYPE billing_subscription_status AS ENUM ('inactive', 'trialing', 'active', 'past_due', 'canceled', 'unpaid');
-CREATE TYPE billing_invoice_status AS ENUM ('draft', 'open', 'paid', 'void', 'uncollectible');
+-- Enum definitions with error handling to avoid "already exists" errors
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'billing_plan_interval') THEN
+        CREATE TYPE billing_plan_interval AS ENUM ('month', 'year');
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'billing_subscription_status') THEN
+        CREATE TYPE billing_subscription_status AS ENUM ('inactive', 'trialing', 'active', 'past_due', 'canceled', 'unpaid');
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'billing_invoice_status') THEN
+        CREATE TYPE billing_invoice_status AS ENUM ('draft', 'open', 'paid', 'void', 'uncollectible');
+    END IF;
+END $$;
 
 -- Plans master
-CREATE TABLE public.billing_plans (
+CREATE TABLE IF NOT EXISTS public.billing_plans (
   code TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
@@ -124,10 +141,11 @@ VALUES
     ),
     false,
     3
-  );
+  )
+ON CONFLICT (code) DO NOTHING;
 
 -- Billing account per user
-CREATE TABLE public.billing_accounts (
+CREATE TABLE IF NOT EXISTS public.billing_accounts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL UNIQUE REFERENCES public.users(id) ON DELETE CASCADE,
   plan_code TEXT NOT NULL REFERENCES public.billing_plans(code) ON UPDATE CASCADE,
@@ -147,7 +165,7 @@ CREATE TABLE public.billing_accounts (
 );
 
 -- Billing invoices / receipts
-CREATE TABLE public.billing_invoices (
+CREATE TABLE IF NOT EXISTS public.billing_invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   account_id UUID NOT NULL REFERENCES public.billing_accounts(id) ON DELETE CASCADE,
   stripe_invoice_id TEXT,
@@ -165,16 +183,18 @@ CREATE TABLE public.billing_invoices (
 );
 
 -- Indexes
-CREATE INDEX idx_billing_accounts_user_id ON public.billing_accounts(user_id);
-CREATE INDEX idx_billing_accounts_plan_code ON public.billing_accounts(plan_code);
-CREATE INDEX idx_billing_invoices_account_id ON public.billing_invoices(account_id);
-CREATE INDEX idx_billing_invoices_created_at ON public.billing_invoices(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_billing_accounts_user_id ON public.billing_accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_billing_accounts_plan_code ON public.billing_accounts(plan_code);
+CREATE INDEX IF NOT EXISTS idx_billing_invoices_account_id ON public.billing_invoices(account_id);
+CREATE INDEX IF NOT EXISTS idx_billing_invoices_created_at ON public.billing_invoices(created_at DESC);
 
 -- updated_at triggers reuse shared function
+DROP TRIGGER IF EXISTS update_billing_plans_updated_at ON public.billing_plans;
 CREATE TRIGGER update_billing_plans_updated_at
   BEFORE UPDATE ON public.billing_plans
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_billing_accounts_updated_at ON public.billing_accounts;
 CREATE TRIGGER update_billing_accounts_updated_at
   BEFORE UPDATE ON public.billing_accounts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -185,24 +205,29 @@ ALTER TABLE public.billing_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.billing_invoices ENABLE ROW LEVEL SECURITY;
 
 -- Billing plans readable by everyone (auth required)
+DROP POLICY IF EXISTS "Billing plans are readable" ON public.billing_plans;
 CREATE POLICY "Billing plans are readable"
   ON public.billing_plans FOR SELECT
   USING (true);
 
 -- Billing accounts policies
+DROP POLICY IF EXISTS "Users can view their billing account" ON public.billing_accounts;
 CREATE POLICY "Users can view their billing account"
   ON public.billing_accounts FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create their billing account" ON public.billing_accounts;
 CREATE POLICY "Users can create their billing account"
   ON public.billing_accounts FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their billing account" ON public.billing_accounts;
 CREATE POLICY "Users can update their billing account"
   ON public.billing_accounts FOR UPDATE
   USING (auth.uid() = user_id);
 
 -- Billing invoices policies
+DROP POLICY IF EXISTS "Users can view their invoices" ON public.billing_invoices;
 CREATE POLICY "Users can view their invoices"
   ON public.billing_invoices FOR SELECT
   USING (
@@ -213,6 +238,7 @@ CREATE POLICY "Users can view their invoices"
     )
   );
 
+DROP POLICY IF EXISTS "Users can insert invoices for their account" ON public.billing_invoices;
 CREATE POLICY "Users can insert invoices for their account"
   ON public.billing_invoices FOR INSERT
   WITH CHECK (
@@ -223,6 +249,7 @@ CREATE POLICY "Users can insert invoices for their account"
     )
   );
 
+DROP POLICY IF EXISTS "Users can update their invoices" ON public.billing_invoices;
 CREATE POLICY "Users can update their invoices"
   ON public.billing_invoices FOR UPDATE
   USING (

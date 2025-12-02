@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
     }
 
     // フォーム取得（API Keyで認証）
-    const { data: form, error: formError } = await supabase
+    const { data: formData, error: formError } = await supabase
       .from('forms')
       .select(`
         id,
@@ -169,6 +169,14 @@ export async function POST(request: NextRequest) {
       `)
       .eq('api_key', body.api_key)
       .single();
+
+    // form_configs を配列からオブジェクトに変換
+    const form = formData ? {
+      ...formData,
+      form_configs: Array.isArray(formData.form_configs)
+        ? formData.form_configs[0]
+        : formData.form_configs
+    } : null;
 
     if (formError || !form) {
       return NextResponse.json(
@@ -211,7 +219,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let config = form.form_configs?.[0];
+    let config = form.form_configs as FormConfig | undefined;
 
     if (!config) {
       const defaultConfig = {
@@ -221,6 +229,7 @@ export async function POST(request: NextRequest) {
         threshold_sales: 0.7,
         threshold_spam: 0.7,
         banned_keywords: [] as string[],
+        whitelist_keywords: [] as string[],
         allowed_domains: [] as string[],
         blocked_domains: [] as string[],
         form_selector: 'form',
@@ -278,6 +287,7 @@ export async function POST(request: NextRequest) {
     config = {
       ...config,
       banned_keywords: config.banned_keywords ?? [],
+      whitelist_keywords: config.whitelist_keywords ?? [],
       allowed_domains: config.allowed_domains ?? [],
       blocked_domains: config.blocked_domains ?? [],
       threshold_sales: typeof config.threshold_sales === 'number' ? config.threshold_sales : 0.7,

@@ -1,24 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { copyToClipboard } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/context';
 import { useFormContext } from '@/lib/forms/context';
 
 export function Header() {
-  const [copied, setCopied] = useState(false);
   const { currentForm } = useFormContext();
   const { user, signOut } = useAuth();
   const router = useRouter();
-
-  const handleCopy = async () => {
-    if (!currentForm) return;
-    await copyToClipboard(currentForm.api_key);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,15 +31,6 @@ export function Header() {
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
                 {currentForm.site_url}
               </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 font-mono text-xs text-slate-700">
-                {currentForm.api_key}
-              </span>
-              <button
-                onClick={handleCopy}
-                className="text-xs font-semibold text-slate-700 underline decoration-dotted decoration-slate-300 transition hover:text-slate-900"
-              >
-                {copied ? '✓ コピー済み' : 'APIキーをコピー'}
-              </button>
             </div>
           </div>
           {user && (

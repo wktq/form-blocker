@@ -12,7 +12,7 @@ import { useFormContext } from '@/lib/forms/context';
 import type { Form, FormConfig } from '@/types';
 
 type FormDetail = Form & {
-  form_configs?: FormConfig[];
+  form_configs?: FormConfig;  // オブジェクト（配列ではない）
 };
 
 type FormState = {
@@ -24,6 +24,7 @@ type FormState = {
   threshold_sales: number;
   threshold_spam: number;
   banned_keywords: string;
+  whitelist_keywords: string;
   allowed_domains: string;
   blocked_domains: string;
   form_selector: string;
@@ -38,6 +39,7 @@ const DEFAULT_STATE: FormState = {
   threshold_sales: 70,
   threshold_spam: 85,
   banned_keywords: '',
+  whitelist_keywords: '',
   allowed_domains: '',
   blocked_domains: '',
   form_selector: 'form',
@@ -47,6 +49,7 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { refreshForms, selectForm } = useFormContext();
   const [formData, setFormData] = useState<FormState>(DEFAULT_STATE);
+  const [activeTab, setActiveTab] = useState<'blacklist' | 'whitelist'>('blacklist');
   const [supportsBlockedDomains, setSupportsBlockedDomains] = useState(false);
   const [supportsFormSelector, setSupportsFormSelector] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -70,14 +73,20 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
         }
 
         const body = await response.json();
+        console.log('[DEBUG] Fetched form data from API:', JSON.stringify(body, null, 2));
+
         const detail: FormDetail | null = body.form ?? null;
-        const config = detail?.form_configs?.[0];
+        const config = detail?.form_configs;  // オブジェクトとして直接アクセス
+
+        console.log('[DEBUG] Extracted config from response:', JSON.stringify(config, null, 2));
+
         if (!cancelled) {
           const hasBlockedDomains = Boolean(config && 'blocked_domains' in config);
           const hasFormSelector = Boolean(config && 'form_selector' in config);
           setSupportsBlockedDomains(hasBlockedDomains);
           setSupportsFormSelector(hasFormSelector);
-          setFormData({
+
+          const newFormData = {
             name: detail?.name ?? '',
             site_url: detail?.site_url ?? '',
             is_active: detail?.is_active ?? true,
@@ -86,10 +95,15 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
             threshold_sales: Math.round((Number(config?.threshold_sales ?? 0.7)) * 100),
             threshold_spam: Math.round((Number(config?.threshold_spam ?? 0.85)) * 100),
             banned_keywords: (config?.banned_keywords ?? []).join(', '),
+            whitelist_keywords: (config?.whitelist_keywords ?? []).join(', '),
             allowed_domains: (config?.allowed_domains ?? []).join(', '),
             blocked_domains: hasBlockedDomains ? (config?.blocked_domains ?? []).join(', ') : '',
             form_selector: hasFormSelector ? config?.form_selector ?? 'form' : 'form',
-          });
+          };
+
+          console.log('[DEBUG] Setting formData state to:', JSON.stringify(newFormData, null, 2));
+          setFormData(newFormData);
+
           if (detail) {
             selectForm(detail.id);
           }
@@ -114,6 +128,8 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (submitting || loading) return;
+
+    console.log('[DEBUG] Form submission - Current formData state:', JSON.stringify(formData, null, 2));
 
     setSubmitting(true);
     setError(null);
@@ -149,6 +165,10 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
           .split(',')
           .map((keyword) => keyword.trim())
           .filter(Boolean),
+        whitelist_keywords: formData.whitelist_keywords
+          .split(',')
+          .map((keyword) => keyword.trim())
+          .filter(Boolean),
         allowed_domains: formData.allowed_domains
           .split(',')
           .map((domain) => domain.trim())
@@ -164,20 +184,28 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
         }),
       };
 
+      console.log('[DEBUG] Config payload being sent:', JSON.stringify(configPayload, null, 2));
+
       const configResponse = await fetch(`/api/forms/${formId}/config`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(configPayload),
       });
 
+      console.log('[DEBUG] Config API response status:', configResponse.status);
+
       if (!configResponse.ok) {
         const body = await configResponse.json().catch(() => ({}));
+        console.error('[DEBUG] Config API error response:', body);
         const message =
           typeof body?.error === 'string'
             ? body.error
             : body?.error?.message || 'フォーム設定の更新に失敗しました';
         throw new Error(message);
       }
+
+      const configResult = await configResponse.json();
+      console.log('[DEBUG] Config API success response:', configResult);
 
       await refreshForms();
       router.push(`/forms/${formId}`);
@@ -318,62 +346,128 @@ export default function EditFormPage({ params }: { params: { id: string } }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>禁止キーワード・ドメイン</CardTitle>
+            <CardTitle>キーワード・ドメイン管理</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">禁止キーワード</label>
-              <textarea
-                value={formData.banned_keywords}
-                onChange={(e) => setFormData({ ...formData, banned_keywords: e.target.value })}
-                rows={3}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="営業, セールス, 販売促進, 広告代理店"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                カンマ区切りで入力してください。空欄の場合はデフォルト判定ルールのみが適用されます。
-              </p>
+          <CardContent>
+            {/* タブUI */}
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                type="button"
+                className={`px-4 py-2 font-medium text-sm ${
+                  activeTab === 'blacklist'
+                    ? 'border-b-2 border-primary-500 text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => setActiveTab('blacklist')}
+              >
+                ブラックリスト
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 font-medium text-sm ${
+                  activeTab === 'whitelist'
+                    ? 'border-b-2 border-primary-500 text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => setActiveTab('whitelist')}
+              >
+                ホワイトリスト
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                許可ドメイン (ホワイトリスト)
-              </label>
-              <textarea
-                value={formData.allowed_domains}
-                onChange={(e) => setFormData({ ...formData, allowed_domains: e.target.value })}
-                rows={2}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="example.com"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                これらのドメインは検出結果に関わらず許可されます。
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ブロック対象ドメイン
-              </label>
-              {supportsBlockedDomains ? (
-                <>
+            {/* ブラックリストタブ */}
+            {activeTab === 'blacklist' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ブラックリストキーワード
+                  </label>
                   <textarea
-                    value={formData.blocked_domains}
-                    onChange={(e) => setFormData({ ...formData, blocked_domains: e.target.value })}
+                    value={formData.banned_keywords}
+                    onChange={(e) => {
+                      console.log('[DEBUG] Banned keywords onChange:', e.target.value);
+                      setFormData({ ...formData, banned_keywords: e.target.value });
+                    }}
                     rows={3}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    placeholder="example.com, calendly.com"
+                    placeholder="営業, セールス, 販売促進, 広告代理店"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    カンマ区切りで入力してください。サブドメインもまとめて指定できます。
+                    これらのキーワードが1つでも含まれていたら即ブロックします。カンマ区切りで入力してください。
                   </p>
-                </>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  この環境のスキーマには blocked_domains 列がありません。保存の対象外になります。
-                </p>
-              )}
-            </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ブラックリストドメイン
+                  </label>
+                  {supportsBlockedDomains ? (
+                    <>
+                      <textarea
+                        value={formData.blocked_domains}
+                        onChange={(e) => {
+                          console.log('[DEBUG] Blocked domains onChange:', e.target.value);
+                          setFormData({ ...formData, blocked_domains: e.target.value });
+                        }}
+                        rows={3}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="example.com, calendly.com"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        これらのドメインが1つでも含まれていたら即ブロックします。カンマ区切りで入力してください。
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      この環境のスキーマには blocked_domains 列がありません。保存の対象外になります。
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ホワイトリストタブ */}
+            {activeTab === 'whitelist' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ホワイトリストキーワード
+                  </label>
+                  <textarea
+                    value={formData.whitelist_keywords}
+                    onChange={(e) => {
+                      console.log('[DEBUG] Whitelist keywords onChange:', e.target.value);
+                      setFormData({ ...formData, whitelist_keywords: e.target.value });
+                    }}
+                    rows={3}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="採用, リクルート, 人材募集"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    これらのキーワードが1つでも含まれていたら、他のフラグに関係なく即許可します。カンマ区切りで入力してください。
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ホワイトリストドメイン
+                  </label>
+                  <textarea
+                    value={formData.allowed_domains}
+                    onChange={(e) => {
+                      console.log('[DEBUG] Allowed domains onChange:', e.target.value);
+                      setFormData({ ...formData, allowed_domains: e.target.value });
+                    }}
+                    rows={3}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="trusted-partner.com, company.co.jp"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    これらのドメインが1つでも含まれていたら、他のフラグに関係なく即許可します。カンマ区切りで入力してください。
+                  </p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

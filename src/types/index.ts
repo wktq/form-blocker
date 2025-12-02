@@ -27,9 +27,10 @@ export interface FormConfig {
   enable_paste_detection: boolean;
   threshold_sales: number; // 0.0-1.0
   threshold_spam: number; // 0.0-1.0
-  banned_keywords: string[];
-  allowed_domains: string[];
-  blocked_domains: string[];
+  banned_keywords: string[]; // ブラックリストキーワード（一致したら即ブロック）
+  whitelist_keywords: string[]; // ホワイトリストキーワード（一致したら即許可）
+  allowed_domains: string[]; // ホワイトリストドメイン（一致したら即許可）
+  blocked_domains: string[]; // ブラックリストドメイン（一致したら即ブロック）
   form_selector: string;
   created_at: string;
   updated_at: string;
@@ -160,6 +161,7 @@ export interface AnalyticsSummary {
 export type BillingPlanInterval = 'month' | 'year';
 export type BillingSubscriptionStatus = 'inactive' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
 export type BillingInvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+export type PlanCode = 'free' | 'starter_monthly' | 'starter_yearly' | 'basic_monthly' | 'basic_yearly' | 'unlimited_monthly' | 'unlimited_yearly';
 
 export interface BillingPlan {
   code: string;
@@ -228,4 +230,36 @@ export interface BillingOverviewResponse {
   invoices: BillingInvoice[];
   portalUrl: string | null;
   checkoutUrl: string | null;
+}
+
+// プラン制限
+export interface PlanLimits {
+  max_forms: number | null; // null means unlimited
+  max_monthly_blocks: number | null; // null means unlimited
+}
+
+// 使用状況統計
+export interface UsageStats {
+  id: string;
+  user_id: string;
+  period_start: string;
+  period_end: string;
+  blocks_count: number;
+  blocks_skipped: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// 現在の使用状況（APIレスポンス用）
+export interface CurrentUsage {
+  current_period: {
+    start: string;
+    end: string;
+  };
+  blocks_used: number;
+  blocks_limit: number | null; // null means unlimited
+  blocks_skipped: number;
+  forms_count: number;
+  forms_limit: number | null; // null means unlimited
+  is_limit_exceeded: boolean;
 }
